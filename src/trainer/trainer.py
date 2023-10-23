@@ -9,8 +9,8 @@ from pathlib import Path
 class Trainer:
     def __init__(self, train_report_rate=1000) -> None:
         timestamp = datetime.now().strftime(r"%Y%m%d_%H%M%S")
-        self.writer = SummaryWriter("log/training_{}".format(timestamp))
-        self.model_saver = ModelSaverService(path=Path("data/model"))
+        self.writer = SummaryWriter("log/training/train_{}".format(timestamp))
+        self.model_saver = ModelSaverService(path=Path("data/model"), topk=2)
         self.train_report_rate = train_report_rate
 
     def _save(self, model: torch.nn.Module, epoch: int):
@@ -23,12 +23,12 @@ class Trainer:
         dataloader: DataLoader,
         optimizer: torch.optim.Optimizer,
         loss_fn,
-        mode="cpu",
+        device="cpu",
     ):
         running_loss = 0.0
 
         # Move model to specified device
-        model = model.to(mode)
+        model = model.to(device)
 
         for i, data in enumerate(dataloader):
             inputs: torch.Tensor
@@ -36,8 +36,8 @@ class Trainer:
             inputs, labels = data
 
             optimizer.zero_grad()
-            inputs = inputs.to(mode)
-            labels = labels.to(mode)
+            inputs = inputs.to(device)
+            labels = labels.to(device)
 
             outputs = model(inputs)
             loss = loss_fn(outputs, labels)
@@ -70,16 +70,15 @@ class Trainer:
         dataloader: DataLoader,
         optimizer: torch.optim.Optimizer,
         loss_fn,
-        mode="cpu",
+        device="cpu",
     ):
         for epoch in range(epochs):
-            # self._train_one_epoch(
-            #     epoch=epoch,
-            #     model=model,
-            #     dataloader=dataloader,
-            #     optimizer=optimizer,
-            #     loss_fn=loss_fn,
-            #     mode=mode,
-            # )
-
+            self._train_one_epoch(
+                epoch=epoch,
+                model=model,
+                dataloader=dataloader,
+                optimizer=optimizer,
+                loss_fn=loss_fn,
+                device=device,
+            )
             self._save(model=model, epoch=epoch)

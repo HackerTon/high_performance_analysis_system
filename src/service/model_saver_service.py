@@ -6,8 +6,9 @@ from service.logger_service import LoggerService
 
 
 class ModelSaverService:
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, topk: int = 2) -> None:
         self.model_directory = path
+        self.topk = topk
         self.latest_model = []
         self.logger = LoggerService()
 
@@ -18,7 +19,7 @@ class ModelSaverService:
         return f"{epoch}_model.pt"
 
     def save(self, model: torch.nn.Module, epoch: int):
-        if len(self.latest_model) > 2:
+        if len(self.latest_model) > self.topk:
             first_epoch_to_delete = self.latest_model.pop(0)
             model_to_delete = self.model_directory.joinpath(
                 self._generate_save_name(first_epoch_to_delete)
