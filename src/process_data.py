@@ -1,4 +1,4 @@
-from torchvision.io import read_image, encode_jpeg
+from torchvision.io import read_image, encode_png
 from torchvision.transforms import Resize
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor
@@ -38,7 +38,7 @@ class DatasetProcessor:
 
     @staticmethod
     def encode_image(image):
-        return encode_jpeg(image)
+        return encode_png(image)
 
     @staticmethod
     def resize_image(image):
@@ -83,9 +83,9 @@ class DatasetProcessor:
         index = path.name.replace(r".png", "")
         number_string = str(number)
         return (
-            f"{folder_name}_{index}_0{str(number_string)}.jpg"
+            f"{folder_name}_{index}_0{str(number_string)}.png"
             if len(number_string) == 1
-            else f"{folder_name}_{index}_{str(number_string)}.jpg"
+            else f"{folder_name}_{index}_{str(number_string)}.png"
         )
 
     @staticmethod
@@ -105,11 +105,11 @@ class DatasetProcessor:
             new_label_path = output_directory.joinpath('label').joinpath(
                 DatasetProcessor.generate_new_name(str(image_path.absolute()), image_path, number=index)
             )
-            jpeg_image = DatasetProcessor.encode_image(img_array[index])
-            jpeg_label = DatasetProcessor.encode_image(label_array[index])
+            png_image = DatasetProcessor.encode_image(img_array[index])
+            png_label = DatasetProcessor.encode_image(label_array[index])
 
-            new_image_path.write_bytes(jpeg_image.numpy())
-            new_label_path.write_bytes(jpeg_label.numpy())
+            new_image_path.write_bytes(png_image.numpy())
+            new_label_path.write_bytes(png_label.numpy())
 
     def process(self):
         output_image_path = (
