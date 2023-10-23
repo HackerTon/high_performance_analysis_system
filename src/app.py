@@ -27,7 +27,7 @@ class App:
     def run_train(self, device):
         self.logger().warning(f'Run on {device}')
         training_data = UAVIDDataset(path="data/processed_dataset/", is_train=True)
-        train_dataloader = DataLoader(LimitDataset(training_data, 1500), batch_size=4, shuffle=True)
+        train_dataloader = DataLoader(training_data, batch_size=4, shuffle=True)
 
         loss_fn1 = torch.nn.CrossEntropyLoss().to(device)
         loss_fn2 = Dice().to(device)
