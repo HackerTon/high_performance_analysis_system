@@ -1,21 +1,11 @@
-from dataloader.dataloader import UAVIDDataset
-from torch.utils.data import DataLoader, Dataset
 import torch
-from torchmetrics import Dice
+from torch.utils.data import DataLoader, Dataset
+from torchvision.transforms import Normalize
+
+from dataloader.dataloader import UAVIDDataset
 from model.model import UNETNetwork
 from service.logger_service import LoggerService
 from trainer.trainer import Trainer
-
-class LimitDataset(Dataset):
-    def __init__(self, dataset: Dataset, n):
-        self.dataset = dataset
-        self.n = n
-
-    def __len__(self):
-        return self.n
-
-    def __getitem__(self, index):
-        return self.dataset[index]
 
 
 class App:
@@ -25,25 +15,32 @@ class App:
         self.trainer = Trainer(train_report_rate=5)
 
     def run_train(self, device):
-        self.logger().warning(f'Run on {device}')
+        self.logger().warning(f"Run on {device}")
         training_data = UAVIDDataset(path="data/processed_dataset/", is_train=True)
         train_dataloader = DataLoader(training_data, batch_size=4, shuffle=True)
-
-        loss_fn1 = torch.nn.CrossEntropyLoss().to(device)
-        loss_fn2 = Dice().to(device)
         model = UNETNetwork(numberClass=8)
-        optimizer = torch.optim.Adam(params=model.parameters(), lr=0.0001)
+        optimizer = torch.optim.Adam(params=model.parameters(), lr=0.001)
 
-        def loss_fn(outputs, labels):
-            return loss_fn1(outputs, labels) + (
-                1 - loss_fn2(outputs, labels.to(torch.int32))
+        def dice_loss(pred: torch.Tensor, target: torch.Tensor):
+            pred_flat = pred.flatten()
+            target_flat = target.flatten()
+            nominator = 2 * torch.mul(pred_flat, target_flat)
+            denominator = torch.add(pred_flat, target_flat)
+            return 1 - torch.mean((nominator + 1e-9) / (denominator + 1e-9))
+
+        def total_loss(pred: torch.Tensor, target: torch.Tensor):
+            return torch.nn.functional.cross_entropy(pred, target) + dice_loss(
+                pred.softmax(1), target
             )
+
+        preprocess = Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 
         self.trainer.train(
             epochs=5,
             model=model,
             dataloader=train_dataloader,
             optimizer=optimizer,
-            loss_fn=loss_fn,
-            device=device
+            loss_fn=total_loss,
+            preprocess=preprocess,
+            device=device,
         )

@@ -23,6 +23,7 @@ class Trainer:
         dataloader: DataLoader,
         optimizer: torch.optim.Optimizer,
         loss_fn,
+        preprocess,
         device="cpu",
     ):
         running_loss = 0.0
@@ -38,6 +39,8 @@ class Trainer:
             optimizer.zero_grad()
             inputs = inputs.to(device)
             labels = labels.to(device)
+
+            inputs = preprocess(inputs)
 
             outputs = model(inputs)
             loss = loss_fn(outputs, labels)
@@ -70,6 +73,7 @@ class Trainer:
         dataloader: DataLoader,
         optimizer: torch.optim.Optimizer,
         loss_fn,
+        preprocess,
         device="cpu",
     ):
         for epoch in range(epochs):
@@ -79,6 +83,7 @@ class Trainer:
                 dataloader=dataloader,
                 optimizer=optimizer,
                 loss_fn=loss_fn,
+                preprocess=preprocess,
                 device=device,
             )
             self._save(model=model, epoch=epoch)

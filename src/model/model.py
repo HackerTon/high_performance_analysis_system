@@ -1,7 +1,9 @@
 import torch
+import torch.nn.functional as F
 from torch import nn
-from torchvision.models import resnet50, ResNet50_Weights
+from torchvision.models import ResNet50_Weights, resnet50
 from torchvision.models.feature_extraction import create_feature_extractor
+
 
 class UNETNetwork(nn.Module):
     def __init__(self, numberClass):
@@ -17,11 +19,6 @@ class UNETNetwork(nn.Module):
                 "layer4": "feat5",
             },
         )
-        self.upsample2x1 = nn.UpsamplingBilinear2d(scale_factor=2)
-        self.upsample2x2 = nn.UpsamplingBilinear2d(scale_factor=2)
-        self.upsample2x3 = nn.UpsamplingBilinear2d(scale_factor=2)
-        self.upsample2x4 = nn.UpsamplingBilinear2d(scale_factor=2)
-        self.upsample2x5 = nn.UpsamplingBilinear2d(scale_factor=2)
         self.conv5 = nn.Conv2d(
             in_channels=2048,
             out_channels=256,
@@ -62,7 +59,6 @@ class UNETNetwork(nn.Module):
             out_channels=numberClass,
             kernel_size=1,
         )
-        self.final_activation = torch.nn.Sigmoid()
 
     def forward(self, x):
         backbone_output = self.backbone(x)
@@ -73,17 +69,17 @@ class UNETNetwork(nn.Module):
             backbone_output["feat4"],
             backbone_output["feat5"],
         )
-        feat4to6 = self.upsample2x1(self.relu5(self.conv5(feat5)))
-        feat3to7 = self.upsample2x2(
-            self.relu6(self.conv6(torch.concat([feat4, feat4to6], dim=1)))
+        feat4to6 = F.interpolate(F.relu(self.conv5(feat5)), scale_factor=2)
+        feat3to7 = F.interpolate(
+            F.relu(self.conv6(torch.concat([feat4, feat4to6], dim=1))), scale_factor=2
         )
-        feat2to8 = self.upsample2x3(
-            self.relu7(self.conv7(torch.concat([feat3, feat3to7], dim=1)))
+        feat2to8 = F.interpolate(
+            F.relu(self.conv7(torch.concat([feat3, feat3to7], dim=1))), scale_factor=2
         )
-        feat1to9 = self.upsample2x4(
-            self.relu8(self.conv8(torch.concat([feat2, feat2to8], dim=1)))
+        feat1to9 = F.interpolate(
+            F.relu(self.conv8(torch.concat([feat2, feat2to8], dim=1))), scale_factor=2
         )
-        featout = self.upsample2x5(
-            self.relu9(self.conv9(torch.concat([feat1, feat1to9], dim=1)))
+        featout = F.interpolate(
+            F.relu(self.conv9(torch.concat([feat1, feat1to9], dim=1))), scale_factor=2
         )
-        return self.final_activation(self.convfinal(featout))
+        return self.convfinal(featout)
