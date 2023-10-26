@@ -26,15 +26,11 @@ model.eval()
 # Step 2: Initialize the inference transforms
 preprocess = weights.transforms()
 
-cam = cv2.VideoCapture(0)
 while True:
     initial_time = time.time()
-    check, frame = cam.read()
-
-    img = torch.permute(torch.Tensor(frame[:, :, [2, 1, 0]]), [2, 0, 1]).to(torch.uint8)
+    img = torch.rand([3, 1080, 1920]).to(torch.uint8)
     batch = preprocess(img).unsqueeze(0)
 
-    # Step 4: Use the model and visualize the prediction
     with torch.no_grad():
         prediction = model(batch)[0]
         labels = [weights.meta["categories"][i] for i in prediction["labels"]]
@@ -46,13 +42,4 @@ while True:
             width=4,
             font_size=30,
         )
-
-    # cv2.imshow('video', torch.permute(box, [1, 2, 0]).numpy()[..., [2, 1, 0]])
-
     print(f"{round( 1 / (time.time() - initial_time), 1)}")
-
-    key = cv2.waitKey(1)
-    if key == 27:
-        break
-cam.release()
-cv2.destroyAllWindows()
