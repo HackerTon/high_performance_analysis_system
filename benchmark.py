@@ -1,21 +1,9 @@
-import cv2
 import time
-import matplotlib.pyplot as plt
-import numpy as np
 import torch
-from torchvision.io.image import read_image
 from torchvision.models.detection import (
     FasterRCNN_MobileNet_V3_Large_320_FPN_Weights,
     fasterrcnn_mobilenet_v3_large_320_fpn,
 )
-from torchvision.models.segmentation import (
-    DeepLabV3_ResNet50_Weights,
-    FCN_ResNet50_Weights,
-    deeplabv3_resnet50,
-    fcn_resnet50,
-)
-from torchvision.ops import masks_to_boxes
-from torchvision.transforms.functional import resize, to_pil_image
 from torchvision.utils import draw_bounding_boxes
 
 # Step 1: Initialize model with the best available weights
