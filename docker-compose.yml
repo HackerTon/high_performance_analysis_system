@@ -18,6 +18,13 @@ services:
     networks:
       - monitoring
     platform: linux/amd64
+    deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
 
   prometheus:
     image: prom/prometheus:latest
@@ -49,18 +56,3 @@ services:
     networks:
       - monitoring
     platform: linux/amd64
-
-  test:
-    image: nvidia/cuda:10.2-base
-    command: nvidia-smi
-    networks:
-      - monitoring
-    platform: linux/amd64
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    
