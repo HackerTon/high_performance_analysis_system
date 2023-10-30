@@ -13,7 +13,7 @@ class ModelSaverService:
         self.logger = LoggerService()
 
         if not self.model_directory.exists():
-            self.model_directory.mkdir()
+            self.model_directory.mkdir(parents=True)
 
     def _generate_save_name(self, epoch: int):
         return f"{epoch}_model.pt"

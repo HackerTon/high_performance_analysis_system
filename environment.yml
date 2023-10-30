@@ -8,6 +8,10 @@ dependencies:
   - pytorch
   - torchvision
   - pytorch-cuda=11.8
+  - uvicorn
+  - gunicorn
+  - opencv
+  - tensorboard
   - pip
   - pip:
     - -r requirements.txt
