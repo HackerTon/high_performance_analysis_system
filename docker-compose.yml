@@ -19,12 +19,12 @@ services:
       - monitoring
     platform: linux/amd64
     deploy:
-    resources:
-      reservations:
-        devices:
-          - driver: nvidia
-            count: 1
-            capabilities: [gpu]
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   prometheus:
     image: prom/prometheus:latest
