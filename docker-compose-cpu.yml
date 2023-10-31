@@ -18,13 +18,8 @@ services:
     networks:
       - monitoring
     platform: linux/amd64
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+    environment:
+     - device=cpu
 
   prometheus:
     image: prom/prometheus:latest
