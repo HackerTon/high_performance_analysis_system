@@ -1,5 +1,6 @@
 version: '3.8'
 
+
 networks:
   monitoring:
     driver: bridge
@@ -7,6 +8,10 @@ networks:
 volumes:
   prometheus_data: {}
   grafana-storage: {}
+
+x-platform:
+  &default-platform
+  linux/arm64
 
 services:
   aisystem:
@@ -17,9 +22,9 @@ services:
       - 9090
     networks:
       - monitoring
-    platform: linux/amd64
     environment:
      - device=cpu
+    platform: *default-platform
 
   prometheus:
     image: prom/prometheus:latest
@@ -38,7 +43,8 @@ services:
       - 9090
     networks:
       - monitoring
-    platform: linux/amd64
+    platform: *default-platform
+    
 
   grafana:
     image: grafana/grafana-oss
@@ -50,4 +56,4 @@ services:
       - grafana-storage:/var/lib/grafana
     networks:
       - monitoring
-    platform: linux/amd64
+    platform: *default-platform
