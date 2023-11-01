@@ -11,6 +11,8 @@ from torchvision.models.detection import (
     fasterrcnn_mobilenet_v3_large_320_fpn,
 )
 
+from service.logger_service import LoggerService
+
 
 class Statistics:
     def __init__(self) -> None:
@@ -20,6 +22,7 @@ class Statistics:
 
 class Inferencer:
     def __init__(self, device, box_score_thresh=0.9) -> None:
+        LoggerService().logger.warn(f'Inference running on {device}')
         self.weights = FasterRCNN_MobileNet_V3_Large_320_FPN_Weights.DEFAULT
         self.preprocess = self.weights.transforms().to(device)
         self.model = fasterrcnn_mobilenet_v3_large_320_fpn(
