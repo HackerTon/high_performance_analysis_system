@@ -35,7 +35,8 @@ class App:
         @asynccontextmanager
         async def deepengine(app: FastAPI):
             # Spawn thread of CCTV monitoring and tracking
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+            # device = "cuda" if torch.cuda.is_available() else "cpu"
+            device = 'cuda'
             inferencer = Inferencer(device=device)
             inference_thread: Thread = Thread(
                 target=inferencer.infer,
