@@ -79,7 +79,7 @@ class DatasetProcessor:
 
     @staticmethod
     def generate_new_name(root, path, number):
-        folder_name = str(root).split('/')[-3]
+        folder_name = str(root).split("/")[-3]
         index = path.name.replace(r".png", "")
         number_string = str(number)
         return (
@@ -90,7 +90,11 @@ class DatasetProcessor:
 
     @staticmethod
     def _process(job: JobData):
-        image_path, label_path, output_directory = job.image, job.label, job.output_directory
+        image_path, label_path, output_directory = (
+            job.image,
+            job.label,
+            job.output_directory,
+        )
 
         image = DatasetProcessor.decode_image(str(image_path))
         image = DatasetProcessor.resize_image(image)
@@ -99,11 +103,15 @@ class DatasetProcessor:
 
         img_array, label_array = DatasetProcessor.crop_256(image=image, label=label)
         for index in range(len(img_array)):
-            new_image_path = output_directory.joinpath('image').joinpath(
-                DatasetProcessor.generate_new_name(str(image_path.absolute()), image_path, number=index)
+            new_image_path = output_directory.joinpath("image").joinpath(
+                DatasetProcessor.generate_new_name(
+                    str(image_path.absolute()), image_path, number=index
+                )
             )
-            new_label_path = output_directory.joinpath('label').joinpath(
-                DatasetProcessor.generate_new_name(str(image_path.absolute()), image_path, number=index)
+            new_label_path = output_directory.joinpath("label").joinpath(
+                DatasetProcessor.generate_new_name(
+                    str(image_path.absolute()), image_path, number=index
+                )
             )
             png_image = DatasetProcessor.encode_image(img_array[index])
             png_label = DatasetProcessor.encode_image(label_array[index])
@@ -129,8 +137,10 @@ class DatasetProcessor:
 
         images = [x for x in self.images]
         labels = [x for x in self.labels]
-        jobs_data = [JobData(image, label, output_image_path) for image, label in zip(images, labels)]
-
+        jobs_data = [
+            JobData(image, label, output_image_path)
+            for image, label in zip(images, labels)
+        ]
 
         total_len = len(jobs_data)
         with ProcessPoolExecutor() as executor:

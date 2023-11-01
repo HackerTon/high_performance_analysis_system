@@ -7,9 +7,9 @@ from torchvision.models.detection import (
 from torchvision.utils import draw_bounding_boxes
 
 if torch.cuda.is_available():
-    device = 'cuda'
+    device = "cuda"
 else:
-    device = 'cpu'
+    device = "cpu"
 
 # Step 1: Initialize model with the best available weights
 weights = FasterRCNN_MobileNet_V3_Large_320_FPN_Weights.DEFAULT

@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from threading import Thread
 from typing import Union
 
+import torch
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
@@ -9,7 +10,6 @@ from fastapi.responses import PlainTextResponse
 from inferencing.inference import Inferencer, Statistics
 from service.logger_service import LoggerService
 from trainer.trainer import Trainer
-import torch
 
 statistics = Statistics()
 

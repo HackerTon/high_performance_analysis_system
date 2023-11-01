@@ -8,7 +8,8 @@ from deep_sort_realtime.deep_sort.track import Track
 from deep_sort_realtime.deepsort_tracker import DeepSort
 from torchvision.models.detection import (
     FasterRCNN_MobileNet_V3_Large_320_FPN_Weights,
-    fasterrcnn_mobilenet_v3_large_320_fpn)
+    fasterrcnn_mobilenet_v3_large_320_fpn,
+)
 
 
 class Statistics:
@@ -50,7 +51,9 @@ class Inferencer:
             initial_time = time.time()
             is_running, frame = cam.read()
 
-            img = torch.permute(torch.Tensor(frame[:, :, [2, 1, 0]]), [2, 0, 1]).to(torch.uint8)
+            img = torch.permute(torch.Tensor(frame[:, :, [2, 1, 0]]), [2, 0, 1]).to(
+                torch.uint8
+            )
             batch = self.preprocess(img).unsqueeze(0)
 
             with torch.no_grad():
@@ -73,7 +76,7 @@ class Inferencer:
                 for track in tracks:
                     if not track.is_confirmed():
                         continue
-                    
+
                     track_id = track.track_id
                     ltrb = track.to_ltrb()
                     centroid = self.findCentroid(ltrb)

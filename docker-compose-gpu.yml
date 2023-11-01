@@ -3,14 +3,12 @@ version: '3.8'
 networks:
   monitoring:
     driver: bridge
-  
+
 volumes:
   prometheus_data: {}
   grafana-storage: {}
 
-x-platform:
-  &default-platform
-  linux/arm64
+x-platform: &default-platform linux/arm64
 
 services:
   aisystem:
@@ -23,14 +21,14 @@ services:
       - monitoring
     platform: *default-platform
     environment:
-     - device=gpu
+      - device=gpu
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [gpu]
+              capabilities: [ gpu ]
 
   prometheus:
     image: prom/prometheus:latest
