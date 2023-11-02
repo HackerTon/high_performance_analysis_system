@@ -23,7 +23,7 @@ services:
       - device=cpu
       - video_path=video2.mp4
     volumes:
-      - ~/Downloads/video2.mp4:/app/video2.mp4
+      - ./video2.mp4:/app/video2.mp4
     # platform: *default-platform
 
   prometheus:
