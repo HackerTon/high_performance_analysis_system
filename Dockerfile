@@ -5,11 +5,11 @@ WORKDIR /app
 
 RUN apt update
 RUN apt install -y ffmpeg libgl1-mesa-glx
+RUN conda install libmamba
+RUN conda config --set solver libmamba
 
 COPY environment.yml .
 COPY requirements.txt .
-RUN conda install libmamba
-RUN conda config --set solver libmamba
 RUN conda env create -f environment.yml
 
 SHELL ["conda", "run", "-n", "pytorch", "/bin/bash", "-c"]
