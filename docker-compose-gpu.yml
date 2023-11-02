@@ -8,27 +8,24 @@ volumes:
   prometheus_data: {}
   grafana-storage: {}
 
-x-platform: &default-platform linux/arm64
+x-platform: &default-platform linux/amd64
 
 services:
   aisystem:
     build: .
     container_name: aisystem
     restart: unless-stopped
-    expose:
-      - 9090
     networks:
       - monitoring
-    platform: *default-platform
     environment:
       - device=gpu
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [ gpu ]
+      - video_path=video2.mp4
+      - batch_size=10
+    volumes:
+      - ~/Downloads/video2.mp4:/app/video2.mp4
+    platform: *default-platform
+    depends_on:
+      - pushgateway
 
   prometheus:
     image: prom/prometheus:latest
@@ -47,7 +44,15 @@ services:
       - 9090
     networks:
       - monitoring
-    platform: *default-platform
+
+  pushgateway:
+    image: prom/pushgateway
+    container_name: pushgateway
+    restart: unless-stopped
+    expose:
+      - 9091
+    networks:
+      - monitoring
 
   grafana:
     image: grafana/grafana-oss
@@ -59,4 +64,3 @@ services:
       - grafana-storage:/var/lib/grafana
     networks:
       - monitoring
-    platform: *default-platform
