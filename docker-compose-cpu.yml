@@ -21,7 +21,7 @@ services:
       - monitoring
     environment:
       - device=cpu
-    platform: *default-platform
+    # platform: *default-platform
 
   prometheus:
     image: prom/prometheus:latest
@@ -40,7 +40,7 @@ services:
       - 9090
     networks:
       - monitoring
-    platform: *default-platform
+    # platform: *default-platform
 
   grafana:
     image: grafana/grafana-oss
@@ -52,4 +52,4 @@ services:
       - grafana-storage:/var/lib/grafana
     networks:
       - monitoring
-    platform: *default-platform
+    # platform: *default-platform

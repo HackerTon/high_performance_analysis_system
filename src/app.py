@@ -1,6 +1,5 @@
 from contextlib import asynccontextmanager
 from threading import Thread
-from typing import Union
 
 import torch
 import uvicorn
@@ -9,7 +8,6 @@ from fastapi.responses import PlainTextResponse
 
 from inferencing.inference import Inferencer, Statistics
 from service.logger_service import LoggerService
-from trainer.trainer import Trainer
 
 statistics = Statistics()
 
@@ -35,13 +33,12 @@ class App:
         @asynccontextmanager
         async def deepengine(app: FastAPI):
             # Spawn thread of CCTV monitoring and tracking
-            # device = "cuda" if torch.cuda.is_available() else "cpu"
-            device = 'cuda'
+            device = "cuda" if torch.cuda.is_available() else "cpu"
             inferencer = Inferencer(device=device)
             inference_thread: Thread = Thread(
                 target=inferencer.infer,
                 args=(
-                    "http://tamperehacklab.tunk.org:38001/nphMotionJpeg?Resolution=640x480&Quality=Clarity",
+                    "/Users/babi/Downloads/video2.mp4",
                     statistics,
                 ),
             )

@@ -1,5 +1,5 @@
 import time
-from typing import List
+from typing import List, Any, Callable, Set
 
 import cv2
 import numpy as np
@@ -22,14 +22,14 @@ class Statistics:
 
 class Inferencer:
     def __init__(self, device, box_score_thresh=0.9) -> None:
-        LoggerService().logger.warn(f'Inference running on {device}')
+        LoggerService().logger.warn(f"Inference running on {device}")
         self.weights = FasterRCNN_MobileNet_V3_Large_320_FPN_Weights.DEFAULT
         self.preprocess = self.weights.transforms().to(device)
         self.model = fasterrcnn_mobilenet_v3_large_320_fpn(
             weights=self.weights, box_score_thresh=box_score_thresh
         )
         self.model = self.model.eval().to(device=device)
-        self.tracker = DeepSort(max_age=10)
+        self.tracker = DeepSort(max_age=30)
         self.running = True
 
     @staticmethod
@@ -46,19 +46,30 @@ class Inferencer:
     def stop(self):
         self.running = False
 
+    @staticmethod
+    def check_and_delete_unique(condition_function: Callable, array: List[Any]):
+        for idx in range(len(array)):
+            if condition_function(array[idx]):
+                array.pop(idx)
+                break
+
     def infer(self, capture_url, statistics: Statistics):  # type: ignore
         number_person = 0
-        human_set = {}
+        human_set: Set = set()
         cam = cv2.VideoCapture(capture_url)
+
         while self.running:
             initial_time = time.time()
             is_running, frame = cam.read()
+
+            if not is_running:
+                LoggerService().logger.warning("Video ended")
+                break
 
             img = torch.permute(torch.Tensor(frame[:, :, [2, 1, 0]]), [2, 0, 1]).to(
                 torch.uint8
             )
             batch = self.preprocess(img).unsqueeze(0)
-
             with torch.no_grad():
                 prediction = self.model(batch)[0]
                 only_human = []
@@ -83,9 +94,13 @@ class Inferencer:
                     track_id = track.track_id
                     ltrb = track.to_ltrb()
                     centroid = self.findCentroid(ltrb)
+                    x, y = centroid[0], centroid[1]
 
-                    if centroid[0] > 0 and centroid[1] > 300 and track_id in human_set:
+                    if x > 300 and y > 0  and not track_id in human_set:
+                        print(x, y)
+                        human_set.add(track_id)
                         number_person += 1
+
 
             statistics.number_of_person = number_person
             statistics.fps = round(1 / (time.time() - initial_time), ndigits=3)
