@@ -5,8 +5,8 @@ dependencies:
   - torchvision
   - uvicorn
   - gunicorn
-  # - opencv=4.5.2
   - tensorboard
+  - prometheus_client
   - pip
   - pip:
     - -r requirements.txt

@@ -21,6 +21,9 @@ services:
       - monitoring
     environment:
       - device=cpu
+      - video_path=video2.mp4
+    volumes:
+      - ~/Downloads/video2.mp4:/app/video2.mp4
     # platform: *default-platform
 
   prometheus:
@@ -36,8 +39,22 @@ services:
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
       - '--web.enable-lifecycle'
+    # expose:
+    #   - 9090
+    ports:
+      - '9090:9090'
+    networks:
+      - monitoring
+    # platform: *default-platform
+
+  pushgateway:
+    image: prom/pushgateway
+    container_name: pushgateway
+    restart: unless-stopped
+    # ports:
+    #   - '9091:9091'
     expose:
-      - 9090
+      - 9091
     networks:
       - monitoring
     # platform: *default-platform

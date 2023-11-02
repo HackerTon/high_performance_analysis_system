@@ -1,7 +1,6 @@
 import time
-from typing import List, Any, Callable, Set
+from typing import Any, Callable, List, Set
 
-import cv2
 import numpy as np
 import torch
 from deep_sort_realtime.deep_sort.track import Track
@@ -11,7 +10,9 @@ from torchvision.models.detection import (
     fasterrcnn_mobilenet_v3_large_320_fpn,
 )
 
+from service.frame_collector import FrameCollector
 from service.logger_service import LoggerService
+from service.metric_pushgateway import MetricPusher
 
 
 class Statistics:
@@ -21,7 +22,9 @@ class Statistics:
 
 
 class Inferencer:
-    def __init__(self, device, box_score_thresh=0.9) -> None:
+    def __init__(
+        self, device, framecollector: FrameCollector, box_score_thresh=0.9
+    ) -> None:
         LoggerService().logger.warn(f"Inference running on {device}")
         self.weights = FasterRCNN_MobileNet_V3_Large_320_FPN_Weights.DEFAULT
         self.preprocess = self.weights.transforms().to(device)
@@ -31,6 +34,8 @@ class Inferencer:
         self.model = self.model.eval().to(device=device)
         self.tracker = DeepSort(max_age=30)
         self.running = True
+        self.metricspusher = MetricPusher(gateway_address="pushgateway:9091")
+        self.framecollector = framecollector
 
     @staticmethod
     def findCentroid(bounding_box):
@@ -53,54 +58,63 @@ class Inferencer:
                 array.pop(idx)
                 break
 
-    def infer(self, capture_url, statistics: Statistics):  # type: ignore
+    def process_each_frame(self, prediction, img, human_set, number_of_person):
+        only_human = []
+        for i in range(len(prediction["boxes"])):
+            if prediction["labels"][i] == 1:
+                only_human.append(
+                    (
+                        self.convertToLTWH(prediction["boxes"][i]).numpy(),
+                        prediction["labels"][i].numpy(),
+                        prediction["scores"][i].numpy(),
+                    ),
+                )
+
+        tracks: List[Track] = self.tracker.update_tracks(only_human, frame=img)
+        for track in tracks:
+            if not track.is_confirmed():
+                continue
+
+            track_id = track.track_id
+            ltrb = track.to_ltrb()
+            centroid = self.findCentroid(ltrb)
+            x, y = centroid[0], centroid[1]
+
+            if x > 0 and y > 0 and not track_id in human_set:
+                human_set.add(track_id)
+                number_of_person += 1
+        return number_of_person
+
+    def infer(self, statistics: Statistics):  # type: ignore
         number_person = 0
         human_set: Set = set()
-        cam = cv2.VideoCapture(capture_url)
 
         while self.running:
             initial_time = time.time()
-            is_running, frame = cam.read()
+            images = self.framecollector.get_earliest_batch()
 
-            if not is_running:
-                LoggerService().logger.warning("Video ended")
+            if images is None:
+                self.stop()
                 break
 
-            img = torch.permute(torch.Tensor(frame[:, :, [2, 1, 0]]), [2, 0, 1]).to(
+            images = np.asarray(images)
+            img = torch.permute(torch.Tensor(images[..., [2, 1, 0]]), [0, 3, 1, 2]).to(
                 torch.uint8
             )
-            batch = self.preprocess(img).unsqueeze(0)
+            batch = self.preprocess(img)
             with torch.no_grad():
-                prediction = self.model(batch)[0]
-                only_human = []
-                for i in range(len(prediction["boxes"])):
-                    if prediction["labels"][i] == 1:
-                        only_human.append(
-                            (
-                                self.convertToLTWH(prediction["boxes"][i]).numpy(),
-                                prediction["labels"][i].numpy(),
-                                prediction["scores"][i].numpy(),
-                            ),
-                        )
-
-                img = torch.permute(batch[0], [1, 2, 0]).numpy()[..., [2, 1, 0]]
+                prediction = self.model(batch)
+                img = torch.permute(batch, [0, 2, 3, 1]).numpy()[..., [2, 1, 0]]
                 img = (img * 255).astype(np.uint8)
+                for idx in range(img.shape[0]):
+                    number_person = self.process_each_frame(
+                        prediction=prediction[idx],
+                        img=img[idx],
+                        human_set=human_set,
+                        number_of_person=number_person,
+                    )
+                    print(number_person)
+                    self.metricspusher.push(number_of_person=number_person)
 
-                tracks: List[Track] = self.tracker.update_tracks(only_human, frame=img)
-                for track in tracks:
-                    if not track.is_confirmed():
-                        continue
-
-                    track_id = track.track_id
-                    ltrb = track.to_ltrb()
-                    centroid = self.findCentroid(ltrb)
-                    x, y = centroid[0], centroid[1]
-
-                    if x > 300 and y > 0  and not track_id in human_set:
-                        print(x, y)
-                        human_set.add(track_id)
-                        number_person += 1
-
-
-            statistics.number_of_person = number_person
-            statistics.fps = round(1 / (time.time() - initial_time), ndigits=3)
+            # statistics.number_of_person = number_person
+            # statistics.fps = round(30 / (time.time() - initial_time), ndigits=3)
