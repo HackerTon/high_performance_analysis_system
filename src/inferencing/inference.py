@@ -94,9 +94,9 @@ class Inferencer:
         while self.running:
             initial_time = time.time()
             images = self.framecollector.get_earliest_batch(self.batch_size)
+
             if images is None:
-                self.stop()
-                break
+                continue
 
             images = np.asarray(images)
             img = torch.permute(torch.Tensor(images[..., [2, 1, 0]]), [0, 3, 1, 2]).to(
