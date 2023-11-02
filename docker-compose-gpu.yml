@@ -26,6 +26,13 @@ services:
     platform: *default-platform
     depends_on:
       - pushgateway
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   prometheus:
     image: prom/prometheus:latest
