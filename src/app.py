@@ -20,13 +20,12 @@ class App:
         self.logger().warning("Initialization of application")
         # self.trainer = Trainer(train_report_rate=5)
 
-    def run(self, video_path) -> None:
+    def run(self, device, video_path, batch_size) -> None:
         collector = FrameCollector(video_path)
         collector.start()
         #  Spawn thread of CCTV monitoring and tracking
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        inferencer = Inferencer(device=device, framecollector=collector)
-        inferencer.infer(statistics=statistics)
+        inferencer = Inferencer(framecollector=collector, batch_size=batch_size)
+        inferencer.infer(device=device, statistics=statistics)
         collector.stop()
 
     # @staticmethod

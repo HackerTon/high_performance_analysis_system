@@ -14,14 +14,11 @@ class FrameCollector:
         self.thread: Thread = Thread(target=self._start_collection, args=())
         self.thread.start()
 
-
-    def add_batch_frames(self, batch_frames: List[Any]):
-        self.batch_frame.append(deepcopy(batch_frames))
-        batch_frames.clear()
-
-    def get_earliest_batch(self) -> Any:
-        if len(self.batch_frame) is not 0:
-            return self.batch_frame.pop(0)
+    def get_earliest_batch(self, range_of_images) -> Any:
+        if len(self.batch_frame) != 0:
+            list_images = self.batch_frame[:range_of_images]
+            del self.batch_frame[:range_of_images]
+            return list_images
         else:
             return None
 
@@ -31,19 +28,12 @@ class FrameCollector:
 
     def _start_collection(self):
         cam = cv2.VideoCapture(self.video_path)
-
-        stored_frame = []
         while self.running:
             is_running, frame = cam.read()
-
             if not is_running:
-                self.batch_frame.append(stored_frame)
                 self.running = False
                 break
 
-            stored_frame.append(frame)
-            if len(stored_frame) == 30:
-                self.add_batch_frames(stored_frame)
+            self.batch_frame.append(frame)
 
         cam.release()
-

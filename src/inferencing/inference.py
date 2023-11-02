@@ -22,20 +22,18 @@ class Statistics:
 
 
 class Inferencer:
-    def __init__(
-        self, device, framecollector: FrameCollector, box_score_thresh=0.9
-    ) -> None:
-        LoggerService().logger.warn(f"Inference running on {device}")
+    def __init__(self, framecollector: FrameCollector, batch_size, box_score_thresh=0.9,) -> None:
         self.weights = FasterRCNN_MobileNet_V3_Large_320_FPN_Weights.DEFAULT
-        self.preprocess = self.weights.transforms().to(device)
+        self.preprocess = self.weights.transforms()
         self.model = fasterrcnn_mobilenet_v3_large_320_fpn(
             weights=self.weights, box_score_thresh=box_score_thresh
         )
-        self.model = self.model.eval().to(device=device)
+        self.model = self.model.eval()
         self.tracker = DeepSort(max_age=30)
         self.running = True
         self.metricspusher = MetricPusher(gateway_address="pushgateway:9091")
         self.framecollector = framecollector
+        self.batch_size = batch_size
 
     @staticmethod
     def findCentroid(bounding_box):
@@ -85,14 +83,17 @@ class Inferencer:
                 number_of_person += 1
         return number_of_person
 
-    def infer(self, statistics: Statistics):  # type: ignore
+    def infer(self, device, statistics: Statistics):  # type: ignore
+        LoggerService().logger.warn(f"Inference running on {device}")
+        self.model = self.model.to(device)
+        self.preprocess = self.preprocess.to(device)
+
         number_person = 0
         human_set: Set = set()
 
         while self.running:
             initial_time = time.time()
-            images = self.framecollector.get_earliest_batch()
-
+            images = self.framecollector.get_earliest_batch(self.batch_size)
             if images is None:
                 self.stop()
                 break
@@ -101,11 +102,11 @@ class Inferencer:
             img = torch.permute(torch.Tensor(images[..., [2, 1, 0]]), [0, 3, 1, 2]).to(
                 torch.uint8
             )
-            batch = self.preprocess(img)
+            batch = self.preprocess(img).to(device)
             with torch.no_grad():
                 prediction = self.model(batch)
-                img = torch.permute(batch, [0, 2, 3, 1]).numpy()[..., [2, 1, 0]]
-                img = (img * 255).astype(np.uint8)
+                img = torch.permute(batch, [0, 2, 3, 1])[..., [2, 1, 0]]
+                img = (img * 255).cpu().numpy().astype(np.uint8)
                 for idx in range(img.shape[0]):
                     number_person = self.process_each_frame(
                         prediction=prediction[idx],
@@ -113,8 +114,7 @@ class Inferencer:
                         human_set=human_set,
                         number_of_person=number_person,
                     )
-                    print(number_person)
-                    self.metricspusher.push(number_of_person=number_person)
 
-            # statistics.number_of_person = number_person
-            # statistics.fps = round(30 / (time.time() - initial_time), ndigits=3)
+                    self.metricspusher.push(
+                        number_of_person=number_person, fps=(time.time() - initial_time)
+                    )
