@@ -122,7 +122,7 @@ class Inferencer:
 
             with torch.no_grad():
                 try:
-                    prediction = self.model(images)[0]
+                    prediction = self.model(images)[1]
                     for idx in range(len(images)):
                         number_person = self.process_each_frame(
                             prediction=prediction[idx],
