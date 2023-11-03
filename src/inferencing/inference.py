@@ -121,21 +121,18 @@ class Inferencer:
                 images[i] = self.preprocess(image)
 
             with torch.no_grad():
-                try:
-                    prediction = self.model(images)[1]
-                    for idx in range(len(images)):
-                        number_person = self.process_each_frame(
-                            prediction=prediction[idx],
-                            img=original_images[idx],
-                            human_set=human_set,
-                            number_of_person=number_person,
-                        )
+                prediction = self.model(images)
+                for idx in range(len(images)):
+                    number_person = self.process_each_frame(
+                        prediction=prediction[idx],
+                        img=original_images[idx],
+                        human_set=human_set,
+                        number_of_person=number_person,
+                    )
 
-                        if self.metricspusher != None:
-                            self.metricspusher.push(
-                                number_of_person=number_person,
-                                latency=(time.time() - initial_time) / self.batch_size,
-                                frame_left=self.framecollector.get_frames_left(),
-                            )
-                except IndexError:
-                    continue
+                    if self.metricspusher != None:
+                        self.metricspusher.push(
+                            number_of_person=number_person,
+                            latency=(time.time() - initial_time) / self.batch_size,
+                            frame_left=self.framecollector.get_frames_left(),
+                        )
