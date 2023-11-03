@@ -99,7 +99,7 @@ class Inferencer:
     def infer(self, device, statistics: Statistics):
         LoggerService().logger.warn(f"Inference running on {device}")
         # self.model = torch.jit.script(self.model.to(device))
-        # self.preprocess = torch.jit.script(self.preprocess.to(device))    
+        # self.preprocess = torch.jit.script(self.preprocess.to(device))
         self.model = self.model.to(device)
         self.preprocess = self.preprocess.to(device)
 
@@ -122,21 +122,20 @@ class Inferencer:
 
             with torch.no_grad():
                 try:
-                    prediction = self.model(images)
+                    prediction = self.model(images)[0]
+                    for idx in range(len(images)):
+                        number_person = self.process_each_frame(
+                            prediction=prediction[idx],
+                            img=original_images[idx],
+                            human_set=human_set,
+                            number_of_person=number_person,
+                        )
+
+                        if self.metricspusher != None:
+                            self.metricspusher.push(
+                                number_of_person=number_person,
+                                latency=(time.time() - initial_time) / self.batch_size,
+                                frame_left=self.framecollector.get_frames_left(),
+                            )
                 except IndexError:
                     continue
-
-                for idx in range(len(images)):
-                    number_person = self.process_each_frame(
-                        prediction=prediction[idx],
-                        img=original_images[idx],
-                        human_set=human_set,
-                        number_of_person=number_person,
-                    )
-
-                    if self.metricspusher != None:
-                        self.metricspusher.push(
-                            number_of_person=number_person,
-                            latency=(time.time() - initial_time) / self.batch_size,
-                            frame_left=self.framecollector.get_frames_left()
-                        )

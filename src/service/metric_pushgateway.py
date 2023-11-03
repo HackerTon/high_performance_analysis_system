@@ -28,6 +28,7 @@ class MetricPusher:
         latency: Union[float, int],
         frame_left: int,
     ) -> None:
+        print('update')
         self.person_gauge.set_to_current_time()
         self.timetaken_guage.set_to_current_time()
         self.frame_left_gauge.set_to_current_time()
