@@ -10,6 +10,7 @@ from fastapi.responses import PlainTextResponse
 from inferencing.inference import Inferencer, Statistics
 from service.frame_collector import FrameCollector
 from service.logger_service import LoggerService
+from service.metric_pushgateway import MetricPusher
 
 statistics = Statistics()
 
@@ -23,8 +24,14 @@ class App:
     def run(self, device, video_path, batch_size) -> None:
         collector = FrameCollector(video_path)
         collector.start()
+        
         #  Spawn thread of CCTV monitoring and tracking
-        inferencer = Inferencer(framecollector=collector, batch_size=batch_size)
+        metricspusher = MetricPusher(gateway_address="pushgateway:9091")
+        inferencer = Inferencer(
+            framecollector=collector,
+            batch_size=batch_size,
+            metricspusher=metricspusher,
+        )
         inferencer.infer(device=device, statistics=statistics)
         collector.stop()
 

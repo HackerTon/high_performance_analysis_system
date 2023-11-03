@@ -1,13 +1,16 @@
 import time
-from typing import Any, Callable, List, Set
+from typing import Any, Callable, List, Optional, Set
 
 import numpy as np
 import torch
+from copy import deepcopy
 from deep_sort_realtime.deep_sort.track import Track
 from deep_sort_realtime.deepsort_tracker import DeepSort
 from torchvision.models.detection import (
-    FasterRCNN_MobileNet_V3_Large_320_FPN_Weights,
-    fasterrcnn_mobilenet_v3_large_320_fpn,
+    FasterRCNN_MobileNet_V3_Large_FPN_Weights,
+    RetinaNet_ResNet50_FPN_V2_Weights,
+    fasterrcnn_mobilenet_v3_large_fpn,
+    retinanet_resnet50_fpn_v2,
 )
 
 from service.frame_collector import FrameCollector
@@ -22,18 +25,28 @@ class Statistics:
 
 
 class Inferencer:
-    def __init__(self, framecollector: FrameCollector, batch_size, box_score_thresh=0.9,) -> None:
-        self.weights = FasterRCNN_MobileNet_V3_Large_320_FPN_Weights.DEFAULT
-        self.preprocess = self.weights.transforms()
-        self.model = fasterrcnn_mobilenet_v3_large_320_fpn(
-            weights=self.weights, box_score_thresh=box_score_thresh
-        )
-        self.model = self.model.eval()
+    def __init__(
+        self,
+        framecollector: FrameCollector,
+        metricspusher: Optional[MetricPusher],
+        batch_size,
+        box_score_thresh=0.9,
+    ) -> None:
+        self._initModelAndProcess(box_score_thresh)
         self.tracker = DeepSort(max_age=30)
         self.running = True
-        self.metricspusher = MetricPusher(gateway_address="pushgateway:9091")
+        self.metricspusher = metricspusher
         self.framecollector = framecollector
         self.batch_size = batch_size
+
+    def _initModelAndProcess(self, box_score_thresh: float):
+        self.weights = FasterRCNN_MobileNet_V3_Large_FPN_Weights.DEFAULT
+        self.preprocess = self.weights.transforms()
+        self.model = fasterrcnn_mobilenet_v3_large_fpn(
+            weights=self.weights,
+            box_score_thresh=box_score_thresh,
+        )
+        self.model = self.model.eval()
 
     @staticmethod
     def findCentroid(bounding_box):
@@ -83,38 +96,41 @@ class Inferencer:
                 number_of_person += 1
         return number_of_person
 
-    def infer(self, device, statistics: Statistics):  # type: ignore
+    def infer(self, device, statistics: Statistics):
         LoggerService().logger.warn(f"Inference running on {device}")
-        self.model = self.model.to(device)
-        self.preprocess = self.preprocess.to(device)
+        self.model = torch.jit.script(self.model.to(device))
+        self.preprocess = torch.jit.script(self.preprocess.to(device))
 
         number_person = 0
         human_set: Set = set()
 
         while self.running:
             initial_time = time.time()
-            images = self.framecollector.get_earliest_batch(self.batch_size)
+            images: List[Any] = self.framecollector.get_earliest_batch(self.batch_size)
+
+            original_images = deepcopy(images)
 
             if images is None:
                 continue
 
-            images = np.asarray(images)
-            img = torch.permute(torch.Tensor(images[..., [2, 1, 0]]), [0, 3, 1, 2]).to(
-                torch.uint8
-            )
-            batch = self.preprocess(img).to(device)
+            for i in range(len(images)):
+                image = torch.tensor(images[i])
+                image = torch.permute(image[..., [2, 1, 0]], [2, 0, 1])
+                image = image.to(device)
+                images[i] = self.preprocess(image)
+
             with torch.no_grad():
-                prediction = self.model(batch)
-                img = torch.permute(batch, [0, 2, 3, 1])[..., [2, 1, 0]]
-                img = (img * 255).cpu().numpy().astype(np.uint8)
-                for idx in range(img.shape[0]):
+                prediction = self.model(images)[1]
+                for idx in range(len(images)):
                     number_person = self.process_each_frame(
                         prediction=prediction[idx],
-                        img=img[idx],
+                        img=original_images[idx],
                         human_set=human_set,
                         number_of_person=number_person,
                     )
 
-                    self.metricspusher.push(
-                        number_of_person=number_person, fps=(time.time() - initial_time)
-                    )
+                    if self.metricspusher != None:
+                        self.metricspusher.push(
+                            number_of_person=number_person,
+                            latency=(time.time() - initial_time) / self.batch_size,
+                        )

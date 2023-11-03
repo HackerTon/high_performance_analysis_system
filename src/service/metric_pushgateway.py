@@ -17,11 +17,11 @@ class MetricPusher:
             registry=self.registry,
         )
 
-    def push(self, number_of_person: Union[float, int], fps: Union[float, int]) -> None:
+    def push(self, number_of_person: Union[float, int], latency: Union[float, int]) -> None:
         self.person_gauge.set_to_current_time()
         self.timetaken_guage.set_to_current_time()
         self.person_gauge.set(number_of_person)
-        self.timetaken_guage.set(fps)
+        self.timetaken_guage.set(latency)
         push_to_gateway(
             gateway=self.gateway_address,
             job="batch",
