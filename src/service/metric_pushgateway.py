@@ -1,5 +1,6 @@
-from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
 from typing import Union
+
+from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
 
 
 class MetricPusher:

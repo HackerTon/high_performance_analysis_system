@@ -91,7 +91,7 @@ class Inferencer:
             centroid = self.findCentroid(ltrb)
             x, y = centroid[0], centroid[1]
 
-            if x > 0 and y > 0 and not track_id in human_set:
+            if x > 960 and y > 0 and not track_id in human_set:
                 human_set.add(track_id)
                 number_of_person += 1
         return number_of_person
@@ -109,10 +109,11 @@ class Inferencer:
         while self.running:
             initial_time = time.time()
             images: List[Any] = self.framecollector.get_earliest_batch(self.batch_size)
-            original_images = deepcopy(images)
 
             if images is None:
                 continue
+
+            original_images = images.copy()
 
             for i in range(len(images)):
                 image = torch.tensor(images[i])
@@ -130,9 +131,14 @@ class Inferencer:
                         number_of_person=number_person,
                     )
 
-                    if self.metricspusher != None:
-                        self.metricspusher.push(
-                            number_of_person=number_person,
-                            latency=(time.time() - initial_time) / self.batch_size,
-                            frame_left=self.framecollector.get_frames_left(),
-                        )
+            if self.metricspusher != None:
+                self.metricspusher.push(
+                    number_of_person=number_person,
+                    latency=(time.time() - initial_time) / self.batch_size,
+                    frame_left=self.framecollector.get_frames_left(),
+                )
+            else:
+                print("STATISTICS")
+                print(number_person)
+                print((time.time() - initial_time) / self.batch_size)
+                print(self.framecollector.get_frames_left())

@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
 
 from inferencing.inference import Inferencer, Statistics
-from service.frame_collector import FrameCollector
+from service.frame_collector import FrameCollector, LastFrameCollector
 from service.logger_service import LoggerService
 from service.metric_pushgateway import MetricPusher
 
@@ -22,9 +22,11 @@ class App:
         # self.trainer = Trainer(train_report_rate=5)
 
     def run(self, device, video_path, batch_size) -> None:
-        collector = FrameCollector(video_path)
+        collector = LastFrameCollector(video_path)
         collector.start()
-        
+        # collector = FrameCollector(video_path)
+        # collector.start()
+
         #  Spawn thread of CCTV monitoring and tracking
         metricspusher = MetricPusher(gateway_address="pushgateway:9091")
         inferencer = Inferencer(
