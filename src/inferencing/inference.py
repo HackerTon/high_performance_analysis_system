@@ -98,8 +98,10 @@ class Inferencer:
 
     def infer(self, device, statistics: Statistics):
         LoggerService().logger.warn(f"Inference running on {device}")
-        self.model = torch.jit.script(self.model.to(device))
-        self.preprocess = torch.jit.script(self.preprocess.to(device))
+        # self.model = torch.jit.script(self.model.to(device))
+        # self.preprocess = torch.jit.script(self.preprocess.to(device))    
+        self.model = self.model.to(device)
+        self.preprocess = self.preprocess.to(device)
 
         number_person = 0
         human_set: Set = set()
