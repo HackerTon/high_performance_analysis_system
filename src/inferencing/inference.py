@@ -76,8 +76,8 @@ class Inferencer:
                 only_human.append(
                     (
                         self.convertToLTWH(prediction["boxes"][i]).numpy(),
-                        prediction["labels"][i].numpy(),
-                        prediction["scores"][i].numpy(),
+                        prediction["labels"][i].cpu().numpy(),
+                        prediction["scores"][i].cpu().numpy(),
                     ),
                 )
 
