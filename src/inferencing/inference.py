@@ -109,7 +109,6 @@ class Inferencer:
         while self.running:
             initial_time = time.time()
             images: List[Any] = self.framecollector.get_earliest_batch(self.batch_size)
-
             original_images = deepcopy(images)
 
             if images is None:
@@ -122,7 +121,11 @@ class Inferencer:
                 images[i] = self.preprocess(image)
 
             with torch.no_grad():
-                prediction = self.model(images)[1]
+                try:
+                    prediction = self.model(images)
+                except IndexError:
+                    continue
+
                 for idx in range(len(images)):
                     number_person = self.process_each_frame(
                         prediction=prediction[idx],
