@@ -16,12 +16,24 @@ class MetricPusher:
             documentation="Latency for inference engine",
             registry=self.registry,
         )
+        self.frame_left_gauge = Gauge(
+            "frame_left",
+            documentation="Frame left",
+            registry=self.registry,
+        )
 
-    def push(self, number_of_person: Union[float, int], latency: Union[float, int]) -> None:
+    def push(
+        self,
+        number_of_person: Union[float, int],
+        latency: Union[float, int],
+        frame_left: int,
+    ) -> None:
         self.person_gauge.set_to_current_time()
         self.timetaken_guage.set_to_current_time()
+        self.frame_left_gauge.set_to_current_time()
         self.person_gauge.set(number_of_person)
         self.timetaken_guage.set(latency)
+        self.frame_left_gauge.set(frame_left)
         push_to_gateway(
             gateway=self.gateway_address,
             job="batch",

@@ -22,6 +22,9 @@ class FrameCollector:
         else:
             return None
 
+    def get_frames_left(self) -> int:
+        return len(self.batch_frame)
+
     def stop(self):
         self.running = False
         self.thread.join()

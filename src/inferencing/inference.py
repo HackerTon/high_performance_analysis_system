@@ -133,4 +133,5 @@ class Inferencer:
                         self.metricspusher.push(
                             number_of_person=number_person,
                             latency=(time.time() - initial_time) / self.batch_size,
+                            frame_left=self.framecollector.get_frames_left()
                         )
