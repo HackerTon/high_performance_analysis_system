@@ -7,9 +7,14 @@ class MetricPusher:
     def __init__(self, gateway_address: str) -> None:
         self.gateway_address = gateway_address
         self.registry = CollectorRegistry()
-        self.person_gauge = Gauge(
-            "number_of_person",
-            documentation="Cumulative number of people detected",
+        self.person_right_to_left = Gauge(
+            "person_right_to_left",
+            documentation="Cumulative person crossing from right to left",
+            registry=self.registry,
+        )
+        self.person_left_to_right = Gauge(
+            "person_left_to_right",
+            documentation="Cumulative person crossing from left to right",
             registry=self.registry,
         )
         self.timetaken_guage = Gauge(
@@ -17,24 +22,19 @@ class MetricPusher:
             documentation="Latency for inference engine",
             registry=self.registry,
         )
-        self.frame_left_gauge = Gauge(
-            "frame_left",
-            documentation="Frame left",
-            registry=self.registry,
-        )
 
     def push(
         self,
-        number_of_person: Union[float, int],
+        person_left_to_right: int,
+        person_right_to_left: int,
         latency: Union[float, int],
-        frame_left: int,
     ) -> None:
-        self.person_gauge.set_to_current_time()
+        self.person_right_to_left.set_to_current_time()
+        self.person_left_to_right.set_to_current_time()
         self.timetaken_guage.set_to_current_time()
-        self.frame_left_gauge.set_to_current_time()
-        self.person_gauge.set(number_of_person)
+        self.person_left_to_right.set(person_left_to_right)
+        self.person_right_to_left.set(person_right_to_left)
         self.timetaken_guage.set(latency)
-        self.frame_left_gauge.set(frame_left)
         push_to_gateway(
             gateway=self.gateway_address,
             job="batch",

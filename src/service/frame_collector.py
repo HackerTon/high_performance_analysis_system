@@ -1,4 +1,5 @@
 from threading import Thread
+from time import sleep
 from typing import Any
 
 import cv2
@@ -56,7 +57,9 @@ class LastFrameCollector:
         if self.batch_frame is None:
             return None
         else:
-            return self.batch_frame
+            thisframe = self.batch_frame[0]
+            self.batch_frame = None
+            return thisframe
 
     def get_frames_left(self) -> int:
         return 1
@@ -68,9 +71,10 @@ class LastFrameCollector:
     def _start_collection(self):
         cam = cv2.VideoCapture(self.video_path)
         while self.running:
-            is_running, frame = cam.read()
-            if not is_running:
-                self.running = False
+            self.running, frame = cam.read()
+            if not self.running:
+                self.batch_frame = None
                 break
             self.batch_frame = [frame]
+            # sleep(0.5)
         cam.release()
