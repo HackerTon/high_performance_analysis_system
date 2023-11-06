@@ -29,13 +29,53 @@ class App:
         # self.trainer = Trainer(train_report_rate=5)
 
     def run(self) -> None:
-        uvicorn.run(app="app:App.webserver_factory", factory=True, reload=True)
+        parser: argparse.ArgumentParser = argparse.ArgumentParser()
+        parser.add_argument(
+            "-d",
+            "--device",
+            help="device",
+            default=os.environ.get("device"),
+        )
+        parser.add_argument(
+            "-r",
+            "--reload",
+            help="reload",
+            default=False,
+        )
+        parser.add_argument(
+            "-vp",
+            "--video_path",
+            help="Video path file or url",
+            default=os.environ.get("video_path"),
+        )
+        parser.add_argument(
+            "-b",
+            "--batch_size",
+            help="Batch size",
+            default=os.environ.get("batch_size"),
+            type=int,
+        )
+        parsed_args: argparse.Namespace = parser.parse_args()
+        uvicorn.run(
+            app="app:App.webserver_factory",
+            factory=True,
+            reload=parsed_args.reload,
+        )
 
     @staticmethod
     def webserver_factory() -> FastAPI:
         parser: argparse.ArgumentParser = argparse.ArgumentParser()
         parser.add_argument(
-            "-d", "--device", help="device", default=os.environ.get("device")
+            "-d",
+            "--device",
+            help="device",
+            default=os.environ.get("device"),
+        )
+        parser.add_argument(
+            "-r",
+            "--reload",
+            help="reload",
+            default=False,
         )
         parser.add_argument(
             "-vp",
@@ -68,14 +108,16 @@ class App:
             inferencer = Inferencer(
                 framecollector=collector,
                 batch_size=parsed_args.batch_size,
-                metricspusher=None,
-                # metricspusher=metricspusher,
+                metricspusher=metricspusher,
                 frame=frame,
             )
             inferencer.run(device=parsed_args.device, statistics=statistics)
             yield
+            LoggerService().logger.warning("Stopping inferencer")
             inferencer.stop()
+            LoggerService().logger.warning("Stopping collector")
             collector.stop()
+            LoggerService().logger.warning("Done")
 
         app = FastAPI(lifespan=deepengine)
         app.mount("/static", StaticFiles(directory="src/static"), name="static")
@@ -88,6 +130,7 @@ class App:
         def streaming_path():
             def iterfile():
                 yield frame[0].tobytes()
+
             return StreamingResponse(iterfile(), media_type="video/mjpeg")
 
         return app

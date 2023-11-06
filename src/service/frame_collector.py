@@ -59,7 +59,7 @@ class LastFrameCollector:
         else:
             thisframe = self.batch_frame[0]
             self.batch_frame = None
-            return thisframe
+            return [thisframe]
 
     def get_frames_left(self) -> int:
         return 1
@@ -71,10 +71,9 @@ class LastFrameCollector:
     def _start_collection(self):
         cam = cv2.VideoCapture(self.video_path)
         while self.running:
-            self.running, frame = cam.read()
-            if not self.running:
+            frame_running, frame = cam.read()
+            if not frame_running:
                 self.batch_frame = None
                 break
             self.batch_frame = [frame]
-            sleep(0.5)
         cam.release()

@@ -38,7 +38,7 @@ class Inferencer:
         box_score_thresh=0.9,
     ) -> None:
         self._initModelAndProcess(box_score_thresh)
-        self.tracker = DeepSort(max_age=5)
+        self.tracker = DeepSort(max_age=10)
         self.running = True
         self.metricspusher = metricspusher
         self.framecollector = framecollector
@@ -58,6 +58,18 @@ class Inferencer:
             box_score_thresh=box_score_thresh,
         )
         self.model = self.model.eval()
+
+    @staticmethod
+    def bgr2rgb(image: torch.Tensor):
+        return image[..., [2, 1, 0]]
+
+    @staticmethod
+    def hwc2chw(image: torch.Tensor):
+        return torch.permute(image, [2, 0, 1])
+
+    @staticmethod
+    def chw2hwc(image: torch.Tensor):
+        return torch.permute(image, [1, 2, 0])
 
     @staticmethod
     def findCentroid(bounding_box):
@@ -82,10 +94,10 @@ class Inferencer:
                 break
 
     def process_each_frame(self, prediction, img):
-        only_human = []
+        filter_only_human = []
         for i in range(len(prediction["boxes"])):
             if prediction["labels"][i] == 1:
-                only_human.append(
+                filter_only_human.append(
                     (
                         self.convertToLTWH(prediction["boxes"][i]).numpy(),
                         prediction["labels"][i].cpu().numpy(),
@@ -93,7 +105,7 @@ class Inferencer:
                     ),
                 )
 
-        tracks: List[Track] = self.tracker.update_tracks(only_human, frame=img)
+        tracks: List[Track] = self.tracker.update_tracks(filter_only_human, frame=img)
         for track in tracks:
             if not track.is_confirmed():
                 continue
@@ -148,12 +160,12 @@ class Inferencer:
             if images is None:
                 continue
 
-            images = [images]
             original_images = deepcopy(images)
 
             for i in range(len(images)):
                 image = torch.tensor(images[i])
-                image = torch.permute(image[..., [2, 1, 0]], [2, 0, 1])
+                image = self.bgr2rgb(image)
+                image = self.hwc2chw(image)
                 image = image.to(device)
                 images[i] = self.preprocess(image)
 
@@ -165,21 +177,35 @@ class Inferencer:
                         img=original_images[idx],
                     )
 
-                    box = draw_bounding_boxes(
-                        torch.permute(
-                            torch.Tensor(original_images[idx]).to(torch.uint8),
-                            [2, 0, 1],
-                        ),
-                        boxes=prediction[idx]["boxes"],
-                        colors="red",
-                    )
+                    image = torch.tensor(original_images[idx])
+                    image = self.bgr2rgb(image)
+                    image = self.hwc2chw(image)
 
-                    full_height = box.shape[1]
-                    half_width = box.shape[2] // 2
+                    filter_only_human = []
+                    for i in range(len(prediction[idx]["boxes"])):
+                        if prediction[idx]["labels"][i] == 1:
+                            filter_only_human.append(
+                                prediction[idx]["boxes"][i].cpu().numpy()
+                            )
 
-                    box = torch.permute(box, [1, 2, 0]).numpy().astype(np.uint8)
-                    box = cv2.line(
-                        box,
+                    if len(filter_only_human) != 0:
+                        box_image = draw_bounding_boxes(
+                            image=image,
+                            boxes=torch.Tensor(np.array(filter_only_human)),
+                            colors="red",
+                        )
+
+                        box_image = self.chw2hwc(box_image)
+                        box_image = self.bgr2rgb(box_image)
+                        box_image = box_image.numpy().astype(np.uint8)
+                    else:
+                        box_image = original_images[idx]
+
+                    full_height = box_image.shape[0]
+                    half_width = box_image.shape[1] // 2
+
+                    box_image = cv2.line(
+                        box_image,
                         (half_width, 0),
                         (half_width, full_height),
                         (255, 255, 0),
@@ -187,23 +213,20 @@ class Inferencer:
                     )
 
                     result, encimg = cv2.imencode(
-                        ".jpeg", box, [int(cv2.IMWRITE_JPEG_QUALITY), 90]
+                        ".jpeg",
+                        box_image,
+                        [int(cv2.IMWRITE_JPEG_QUALITY), 90],
                     )
                     self.frame.clear()
-                    self.frame.append(encimg) 
+                    self.frame.append(encimg)
 
             if self.metricspusher != None:
-                print(f"Right to left: {len(self.human_set_tracked_right)}")
-                print(f"Left to right: {len(self.human_set_tracked_left)}")
                 self.metricspusher.push(
                     latency=(time.time() - initial_time) / self.batch_size,
                     person_right_to_left=len(self.human_set_tracked_right),
                     person_left_to_right=len(self.human_set_tracked_left),
                 )
-            # else:
-            # print(f"Right to left: {len(self.human_set_tracked_right)}")
-            # print(f"Left to right: {len(self.human_set_tracked_left)}")
-            # print("STATISTICS")
-            # print(number_person)
-            # print((time.time() - initial_time) / self.batch_size)
-            # print(self.framecollector.get_frames_left())
+            else:
+                print(f"Right to left: {len(self.human_set_tracked_right)}")
+                print(f"Left to right: {len(self.human_set_tracked_left)}")
+                print(f"Latency: {(time.time() - initial_time) / self.batch_size}")
