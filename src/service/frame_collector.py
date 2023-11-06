@@ -1,5 +1,4 @@
-# from threading import Thread
-from multiprocessing import Process, Queue
+from threading import Thread
 from time import sleep
 from typing import Any
 
@@ -13,8 +12,8 @@ class FrameCollector:
         self.running = True
 
     def start(self):
-        self.process: Process = Process(target=self._start_collection, args=())
-        self.process.start()
+        self.thread: Thread = Thread(target=self._start_collection, args=())
+        self.thread.start()
 
     def get_earliest_batch(self, range_of_images) -> Any:
         if len(self.batch_frame) != 0:
@@ -29,7 +28,7 @@ class FrameCollector:
 
     def stop(self):
         self.running = False
-        self.process.join()
+        self.thread.join()
 
     def _start_collection(self):
         cam = cv2.VideoCapture(self.video_path)
@@ -47,34 +46,34 @@ class FrameCollector:
 class LastFrameCollector:
     def __init__(self, video_path: str) -> None:
         self.video_path = video_path
-        # self.batch_frame = None
-        self.queue = Queue(10)
+        self.batch_frame = None
         self.running = True
 
     def start(self):
-        self.thread: Process = Process(target=self._start_collection, args=())
-        self.thread.start()
+        self.process: Thread = Thread(target=self._start_collection, args=())
+        self.process.start()
 
     def get_earliest_batch(self, range_of_images) -> Any:
-        data = self.queue.get()
-        if data is None:
+        # data = self.queue.get()
+        if self.batch_frame is None:
             return None
         else:
-            return data
+            return self.batch_frame
 
     def get_frames_left(self) -> int:
         return 1
 
     def stop(self):
         self.running = False
-        self.thread.join()
+        self.process.join()
 
     def _start_collection(self):
         cam = cv2.VideoCapture(self.video_path)
         while self.running:
             frame_running, frame = cam.read()
             if not frame_running:
-                self.queue.put(None)
+                self.batch_frame = None
+                self.stop()
                 break
-            self.queue.put(frame)
+            self.batch_frame = frame
         cam.release()

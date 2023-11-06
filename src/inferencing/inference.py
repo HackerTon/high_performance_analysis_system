@@ -144,6 +144,11 @@ class Inferencer:
             ):
                 self.human_set_tracked_right.append(track_id)
 
+            # print(self.human_set_left)
+            # print(self.human_set_tracked_left)
+            # print(self.human_set_right)
+            # print(self.human_set_tracked_right)
+
     def run(self, device, statistics):
         self.thread = Thread(target=self.infer, args=(device, statistics))
         self.thread.start()
@@ -156,7 +161,7 @@ class Inferencer:
         while self.running:
             initial_time = time.time()
             # images: List[Any] = self.framecollector.get_earliest_batch(self.batch_size)
-            images = self.framecollector.queue.get()
+            images = self.framecollector.get_earliest_batch(1)
 
             if images is None:
                 continue
