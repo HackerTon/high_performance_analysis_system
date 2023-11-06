@@ -37,9 +37,7 @@ class FrameCollector:
             if not is_running:
                 self.running = False
                 break
-
             self.batch_frame.append(frame)
-
         cam.release()
 
 
@@ -54,11 +52,12 @@ class LastFrameCollector:
         self.process.start()
 
     def get_earliest_batch(self, range_of_images) -> Any:
-        # data = self.queue.get()
         if self.batch_frame is None:
             return None
         else:
-            return self.batch_frame
+            data = self.batch_frame
+            self.batch_frame = None
+            return data
 
     def get_frames_left(self) -> int:
         return 1
