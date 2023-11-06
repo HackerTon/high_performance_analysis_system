@@ -59,6 +59,8 @@ class App:
         uvicorn.run(
             app="app:App.webserver_factory",
             factory=True,
+            host='0.0.0.0',
+            port=8000,
             reload=parsed_args.reload,
         )
 
