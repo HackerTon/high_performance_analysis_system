@@ -26,7 +26,6 @@ class App:
     def __init__(self) -> None:
         self.logger = LoggerService()
         self.logger().warning("Initialization of application")
-        # self.trainer = Trainer(train_report_rate=5)
 
     def run(self) -> None:
         parser: argparse.ArgumentParser = argparse.ArgumentParser()
@@ -103,23 +102,19 @@ class App:
         @asynccontextmanager
         async def deepengine(app: FastAPI):
             collector = LastFrameCollector(parsed_args.video_path)
-            collector.start()
-
-            #  Spawn thread of CCTV monitoring and tracking
             metricspusher = MetricPusher(gateway_address="pushgateway:9091")
             inferencer = Inferencer(
                 framecollector=collector,
                 batch_size=parsed_args.batch_size,
-                metricspusher=metricspusher,
+                # metricspusher=metricspusher,
                 frame=frame,
             )
             inferencer.run(device=parsed_args.device, statistics=statistics)
+            collector.start()
             yield
-            LoggerService().logger.warning("Stopping inferencer")
             inferencer.stop()
-            LoggerService().logger.warning("Stopping collector")
             collector.stop()
-            LoggerService().logger.warning("Done")
+            LoggerService().logger.warning("Done stopping inference and collector")
 
         app = FastAPI(lifespan=deepengine)
 
@@ -140,11 +135,8 @@ class App:
                         sleep(1)
 
             return StreamingResponse(
-                iterfile(), media_type="multipart/x-mixed-replace;boundary=frame"
+                iterfile(),
+                media_type="multipart/x-mixed-replace;boundary=frame",
             )
 
         return app
-
-    # def run_train(self, device):
-    #     self.logger().warning(f"Run on {device}")
-    #     self.trainer.run_trainer(device=device)
