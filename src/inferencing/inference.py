@@ -155,11 +155,13 @@ class Inferencer:
 
         while self.running:
             initial_time = time.time()
-            images: List[Any] = self.framecollector.get_earliest_batch(self.batch_size)
+            # images: List[Any] = self.framecollector.get_earliest_batch(self.batch_size)
+            images = self.framecollector.queue.get()
 
             if images is None:
                 continue
 
+            images = [images]
             original_images = deepcopy(images)
 
             for i in range(len(images)):

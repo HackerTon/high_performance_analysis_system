@@ -48,7 +48,7 @@ class LastFrameCollector:
     def __init__(self, video_path: str) -> None:
         self.video_path = video_path
         # self.batch_frame = None
-        self.queue = Queue()
+        self.queue = Queue(10)
         self.running = True
 
     def start(self):
@@ -76,5 +76,5 @@ class LastFrameCollector:
             if not frame_running:
                 self.queue.put(None)
                 break
-            self.queue.put([frame])
+            self.queue.put(frame)
         cam.release()
