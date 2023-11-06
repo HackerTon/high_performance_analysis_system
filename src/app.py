@@ -10,9 +10,9 @@ from time import sleep
 
 # import torch
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Header
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 
 from inferencing.inference import Inferencer, Statistics
 from service.frame_collector import FrameCollector, LastFrameCollector
@@ -59,7 +59,7 @@ class App:
         uvicorn.run(
             app="app:App.webserver_factory",
             factory=True,
-            host='0.0.0.0',
+            host="0.0.0.0",
             port=8000,
             reload=parsed_args.reload,
         )
@@ -122,18 +122,26 @@ class App:
             LoggerService().logger.warning("Done")
 
         app = FastAPI(lifespan=deepengine)
-        app.mount("/static", StaticFiles(directory="src/static"), name="static")
 
         @app.get("/status")
         def status_path():
             return "Hello world, I am online"
 
-        @app.get("/streaming")
-        def streaming_path():
+        @app.get("/")
+        async def streaming_path():
             def iterfile():
-                yield frame[0].tobytes()
+                while True:
+                    try:
+                        yield b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + frame[
+                            0
+                        ].tobytes() + b"\r\n"
+                        sleep(0.05)
+                    except:
+                        sleep(1)
 
-            return StreamingResponse(iterfile(), media_type="video/mjpeg")
+            return StreamingResponse(
+                iterfile(), media_type="multipart/x-mixed-replace;boundary=frame"
+            )
 
         return app
 

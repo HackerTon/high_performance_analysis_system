@@ -1,4 +1,5 @@
-from threading import Thread
+# from threading import Thread
+from multiprocessing import Process, Queue
 from time import sleep
 from typing import Any
 
@@ -12,8 +13,8 @@ class FrameCollector:
         self.running = True
 
     def start(self):
-        self.thread: Thread = Thread(target=self._start_collection, args=())
-        self.thread.start()
+        self.process: Process = Process(target=self._start_collection, args=())
+        self.process.start()
 
     def get_earliest_batch(self, range_of_images) -> Any:
         if len(self.batch_frame) != 0:
@@ -28,7 +29,7 @@ class FrameCollector:
 
     def stop(self):
         self.running = False
-        self.thread.join()
+        self.process.join()
 
     def _start_collection(self):
         cam = cv2.VideoCapture(self.video_path)
@@ -46,20 +47,20 @@ class FrameCollector:
 class LastFrameCollector:
     def __init__(self, video_path: str) -> None:
         self.video_path = video_path
-        self.batch_frame = None
+        # self.batch_frame = None
+        self.queue = Queue()
         self.running = True
 
     def start(self):
-        self.thread: Thread = Thread(target=self._start_collection, args=())
+        self.thread: Process = Process(target=self._start_collection, args=())
         self.thread.start()
 
     def get_earliest_batch(self, range_of_images) -> Any:
-        if self.batch_frame is None:
+        data = self.queue.get()
+        if data is None:
             return None
         else:
-            thisframe = self.batch_frame[0]
-            self.batch_frame = None
-            return [thisframe]
+            return data
 
     def get_frames_left(self) -> int:
         return 1
@@ -73,7 +74,7 @@ class LastFrameCollector:
         while self.running:
             frame_running, frame = cam.read()
             if not frame_running:
-                self.batch_frame = None
+                self.queue.put(None)
                 break
-            self.batch_frame = [frame]
+            self.queue.put([frame])
         cam.release()
