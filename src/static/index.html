@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script>
+        setInterval(function () {
+            var myImg = document.getElementById('myImg');
+            myImg.src = 'http://0.0.0.0:8000/streaming';
+            window.location.reload();
+        }, 500);
+    </script>
+</head>
+
+<body>
+    <img id="myImg" alt="streaming test" src="http://0.0.0.0:8000/streaming" />
+
+</body>
+
+</html>

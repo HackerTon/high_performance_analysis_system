@@ -1,11 +1,18 @@
+import argparse
 from contextlib import asynccontextmanager
-from threading import Thread
+
+from typing import List
+import numpy as np
+import os
+
+# from threading import Thread
 from time import sleep
 
-import torch
+# import torch
 import uvicorn
 from fastapi import FastAPI
-from fastapi.responses import PlainTextResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import StreamingResponse
 
 from inferencing.inference import Inferencer, Statistics
 from service.frame_collector import FrameCollector, LastFrameCollector
@@ -21,57 +28,69 @@ class App:
         self.logger().warning("Initialization of application")
         # self.trainer = Trainer(train_report_rate=5)
 
-    def run(self, device, video_path, batch_size) -> None:
-        collector = LastFrameCollector(video_path)
-        collector.start()
-        # collector = FrameCollector(video_path)
-        # collector.start()
+    def run(self) -> None:
+        uvicorn.run(app="app:App.webserver_factory", factory=True, reload=True)
 
-        #  Spawn thread of CCTV monitoring and tracking
-        metricspusher = MetricPusher(gateway_address="pushgateway:9091")
-        inferencer = Inferencer(
-            framecollector=collector,
-            batch_size=batch_size,
-            metricspusher=metricspusher,
+    @staticmethod
+    def webserver_factory() -> FastAPI:
+        parser: argparse.ArgumentParser = argparse.ArgumentParser()
+        parser.add_argument(
+            "-d", "--device", help="device", default=os.environ.get("device")
         )
-        inferencer.infer(device=device, statistics=statistics)
-        collector.stop()
+        parser.add_argument(
+            "-vp",
+            "--video_path",
+            help="Video path file or url",
+            default=os.environ.get("video_path"),
+        )
+        parser.add_argument(
+            "-b",
+            "--batch_size",
+            help="Batch size",
+            default=os.environ.get("batch_size"),
+            type=int,
+        )
+        parsed_args: argparse.Namespace = parser.parse_args()
 
-    # @staticmethod
-    # def webserver_factory() -> FastAPI:
-    #     @asynccontextmanager
-    #     async def deepengine(app: FastAPI):
-    #         collector = FrameCollector('./video2.mp4')
-    #         collector.start()
+        print(f"Run on {parsed_args.device}")
+        print(f"with video of {parsed_args.video_path}")
+        print(f"and batch size of {parsed_args.batch_size}")
 
-    #         #  Spawn thread of CCTV monitoring and tracking
-    #         device = "cuda" if torch.cuda.is_available() else "cpu"
-    #         inferencer = Inferencer(device=device, framecollector=collector)
-    #         inference_thread: Thread = Thread(
-    #             target=inferencer.infer,
-    #             args=[statistics],
-    #         )
-    #         inference_thread.start()
-    #         yield
-    #         inferencer.stop()
-    #         inference_thread.join()
-    #         collector.stop()
+        frame: List[np.ndarray] = []
 
-    #     app = FastAPI(lifespan=deepengine)
-    #     @app.get("/")
-    #     async def root():
-    #         return "hello world"
-    #     @app.get("/metrics", response_class=PlainTextResponse)
-    #     async def metrics():
-    #         return "\n".join(
-    #             [
-    #                 "# HELP number_of_person",
-    #                 f"number_of_person {statistics.number_of_person}",
-    #                 "# HELP fps",
-    #                 f"fps {statistics.fps}",
-    #             ]
-    #         )
-    #     return app
+        @asynccontextmanager
+        async def deepengine(app: FastAPI):
+            collector = LastFrameCollector(parsed_args.video_path)
+            collector.start()
+
+            #  Spawn thread of CCTV monitoring and tracking
+            metricspusher = MetricPusher(gateway_address="pushgateway:9091")
+            inferencer = Inferencer(
+                framecollector=collector,
+                batch_size=parsed_args.batch_size,
+                metricspusher=None,
+                # metricspusher=metricspusher,
+                frame=frame,
+            )
+            inferencer.run(device=parsed_args.device, statistics=statistics)
+            yield
+            inferencer.stop()
+            collector.stop()
+
+        app = FastAPI(lifespan=deepengine)
+        app.mount("/static", StaticFiles(directory="src/static"), name="static")
+
+        @app.get("/status")
+        def status_path():
+            return "Hello world, I am online"
+
+        @app.get("/streaming")
+        def streaming_path():
+            def iterfile():
+                yield frame[0].tobytes()
+            return StreamingResponse(iterfile(), media_type="video/mjpeg")
+
+        return app
 
     # def run_train(self, device):
     #     self.logger().warning(f"Run on {device}")

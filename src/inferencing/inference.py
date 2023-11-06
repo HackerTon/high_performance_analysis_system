@@ -9,13 +9,17 @@ from deep_sort_realtime.deep_sort.track import Track
 from deep_sort_realtime.deepsort_tracker import DeepSort
 from torchvision.models.detection import (
     FasterRCNN_MobileNet_V3_Large_FPN_Weights,
-    RetinaNet_ResNet50_FPN_V2_Weights, fasterrcnn_mobilenet_v3_large_fpn,
-    retinanet_resnet50_fpn_v2)
+    RetinaNet_ResNet50_FPN_V2_Weights,
+    fasterrcnn_mobilenet_v3_large_fpn,
+    retinanet_resnet50_fpn_v2,
+)
 from torchvision.utils import draw_bounding_boxes
 
 from service.frame_collector import FrameCollector, LastFrameCollector
 from service.logger_service import LoggerService
 from service.metric_pushgateway import MetricPusher
+
+from threading import Thread
 
 
 class Statistics:
@@ -28,8 +32,9 @@ class Inferencer:
     def __init__(
         self,
         framecollector: Union[FrameCollector, LastFrameCollector],
-        metricspusher: Optional[MetricPusher],
         batch_size,
+        frame: List[np.ndarray],
+        metricspusher: Optional[MetricPusher] = None,
         box_score_thresh=0.9,
     ) -> None:
         self._initModelAndProcess(box_score_thresh)
@@ -38,6 +43,7 @@ class Inferencer:
         self.metricspusher = metricspusher
         self.framecollector = framecollector
         self.batch_size = batch_size
+        self.frame = frame
 
         self.human_set_right = []
         self.human_set_left = []
@@ -66,6 +72,7 @@ class Inferencer:
 
     def stop(self):
         self.running = False
+        self.thread.join()
 
     @staticmethod
     def check_and_delete_unique(condition_function: Callable, array: List[Any]):
@@ -125,10 +132,12 @@ class Inferencer:
             ):
                 self.human_set_tracked_right.append(track_id)
 
+    def run(self, device, statistics):
+        self.thread = Thread(target=self.infer, args=(device, statistics))
+        self.thread.start()
+
     def infer(self, device, statistics: Statistics):
         LoggerService().logger.warn(f"Inference running on {device}")
-        # self.model = torch.jit.script(self.model.to(device))
-        # self.preprocess = torch.jit.script(self.preprocess.to(device))
         self.model = self.model.to(device)
         self.preprocess = self.preprocess.to(device)
 
@@ -137,7 +146,6 @@ class Inferencer:
             images: List[Any] = self.framecollector.get_earliest_batch(self.batch_size)
 
             if images is None:
-                # print('frame not available')
                 continue
 
             images = [images]
@@ -157,30 +165,32 @@ class Inferencer:
                         img=original_images[idx],
                     )
 
-                    # box = draw_bounding_boxes(
-                    #     torch.permute(
-                    #         torch.Tensor(original_images[idx]).to(torch.uint8),
-                    #         [2, 0, 1],
-                    #     ),
-                    #     boxes=prediction[idx]["boxes"],
-                    #     colors="red",
-                    # )
+                    box = draw_bounding_boxes(
+                        torch.permute(
+                            torch.Tensor(original_images[idx]).to(torch.uint8),
+                            [2, 0, 1],
+                        ),
+                        boxes=prediction[idx]["boxes"],
+                        colors="red",
+                    )
 
-                    # full_height = box.shape[1]
-                    # half_width = box.shape[2] // 2
+                    full_height = box.shape[1]
+                    half_width = box.shape[2] // 2
 
-                    # box = torch.permute(box, [1, 2, 0]).numpy().astype(np.uint8)
-                    # box = cv2.line(
-                    #     box,
-                    #     (half_width, 0),
-                    #     (half_width, full_height),
-                    #     (255, 255, 0),
-                    #     2,
-                    # )
+                    box = torch.permute(box, [1, 2, 0]).numpy().astype(np.uint8)
+                    box = cv2.line(
+                        box,
+                        (half_width, 0),
+                        (half_width, full_height),
+                        (255, 255, 0),
+                        2,
+                    )
 
-                    # cv2.imshow("video", box)
-                    # if cv2.waitKey(1) & 0xFF == ord("q"):
-                    #     break
+                    result, encimg = cv2.imencode(
+                        ".jpeg", box, [int(cv2.IMWRITE_JPEG_QUALITY), 90]
+                    )
+                    self.frame.clear()
+                    self.frame.append(encimg) 
 
             if self.metricspusher != None:
                 print(f"Right to left: {len(self.human_set_tracked_right)}")

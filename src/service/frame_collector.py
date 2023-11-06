@@ -76,5 +76,5 @@ class LastFrameCollector:
                 self.batch_frame = None
                 break
             self.batch_frame = [frame]
-            # sleep(0.5)
+            sleep(0.5)
         cam.release()
