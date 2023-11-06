@@ -1,6 +1,6 @@
 import time
-from copy import deepcopy
-from typing import Any, Callable, List, Optional, Set, Union
+from threading import Thread
+from typing import Any, Callable, List, Optional, Union
 
 import cv2
 import numpy as np
@@ -18,8 +18,6 @@ from torchvision.utils import draw_bounding_boxes
 from service.frame_collector import FrameCollector, LastFrameCollector
 from service.logger_service import LoggerService
 from service.metric_pushgateway import MetricPusher
-
-from threading import Thread
 
 
 class Statistics:
@@ -161,13 +159,13 @@ class Inferencer:
         while self.running:
             initial_time = time.time()
             # images: List[Any] = self.framecollector.get_earliest_batch(self.batch_size)
-            images = self.framecollector.get_earliest_batch(1)
+            images: np.ndarray = self.framecollector.get_earliest_batch(1)
 
             if images is None:
                 continue
 
             images = [images]
-            original_images = deepcopy(images)
+            original_images = images.copy()
 
             for i in range(len(images)):
                 image = torch.tensor(images[i])
