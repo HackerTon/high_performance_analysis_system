@@ -1,5 +1,6 @@
 import argparse
 from contextlib import asynccontextmanager
+from multiprocessing import Queue
 
 from typing import List
 import numpy as np
@@ -20,7 +21,6 @@ from service.logger_service import LoggerService
 from service.metric_pushgateway import MetricPusher
 
 statistics = Statistics()
-
 
 class App:
     def __init__(self) -> None:
@@ -98,6 +98,7 @@ class App:
         print(f"and batch size of {parsed_args.batch_size}")
 
         frame: List[np.ndarray] = []
+        frameQueuq: Queue = Queue()
 
         @asynccontextmanager
         async def deepengine(app: FastAPI):
@@ -106,14 +107,19 @@ class App:
             inferencer = Inferencer(
                 framecollector=collector,
                 batch_size=parsed_args.batch_size,
-                # metricspusher=metricspusher,
+                metricspusher=metricspusher,
                 frame=frame,
             )
-            inferencer.run(device=parsed_args.device, statistics=statistics)
-            collector.start()
+            inferencer.run(device=parsed_args.device, statistics=statistics, queue=frameQueuq)
+            collector.start(queue=frameQueuq)
+            inferencer.thread.start()
+            collector.process.start()
             yield
-            inferencer.stop()
-            collector.stop()
+            collector.running = False
+            inferencer.running = False
+            inferencer.thread.join()
+            collector.process.join()
+
             LoggerService().logger.warning("Done stopping inference and collector")
 
         app = FastAPI(lifespan=deepengine)

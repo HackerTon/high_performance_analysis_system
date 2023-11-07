@@ -1,3 +1,4 @@
+from multiprocessing import Queue
 import time
 from threading import Thread
 from typing import Any, Callable, List, Optional, Union
@@ -29,7 +30,7 @@ class Statistics:
 class Inferencer:
     def __init__(
         self,
-        framecollector: Union[FrameCollector, LastFrameCollector],
+        framecollector: LastFrameCollector,
         batch_size,
         frame: List[np.ndarray],
         metricspusher: Optional[MetricPusher] = None,
@@ -82,7 +83,6 @@ class Inferencer:
 
     def stop(self):
         self.running = False
-        self.thread.join()
 
     @staticmethod
     def check_and_delete_unique(condition_function: Callable, array: List[Any]):
@@ -147,11 +147,14 @@ class Inferencer:
             # print(self.human_set_right)
             # print(self.human_set_tracked_right)
 
-    def run(self, device, statistics):
-        self.thread = Thread(target=self.infer, args=(device, statistics))
-        self.thread.start()
+    def run(self, device, statistics, queue: Queue):
+        self.thread = Thread(
+            target=self.infer,
+            args=(device, statistics, queue),
+            name="inference",
+        )
 
-    def infer(self, device, statistics: Statistics):
+    def infer(self, device, statistics: Statistics, queue: Queue):
         LoggerService().logger.warn(f"Inference running on {device}")
         self.model = self.model.to(device)
         self.preprocess = self.preprocess.to(device)
@@ -159,7 +162,9 @@ class Inferencer:
         while self.running:
             initial_time = time.time()
             # images: List[Any] = self.framecollector.get_earliest_batch(self.batch_size)
-            images: np.ndarray = self.framecollector.get_earliest_batch(1)
+            # images: np.ndarray = self.framecollector.get_earliest_batch(1)
+            # images: np.ndarray = self.framecollector.read()
+            images: np.ndarray = queue.get()
 
             if images is None:
                 continue
