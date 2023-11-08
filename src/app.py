@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse, Response
 
 from inferencing.inference import Inferencer, Statistics
-from service.frame_collector import FrameCollector, LastFrameCollector
+from service.frame_collector import LastFrameCollector
 from service.logger_service import LoggerService
 from service.metric_pushgateway import MetricPusher
 
