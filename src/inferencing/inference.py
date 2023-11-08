@@ -1,5 +1,5 @@
-from multiprocessing import Queue
 import time
+from multiprocessing import Queue
 from threading import Thread
 from typing import Any, Callable, List, Optional, Union
 
@@ -7,14 +7,12 @@ import numpy as np
 import torch
 from deep_sort_realtime.deep_sort.track import Track
 from deep_sort_realtime.deepsort_tracker import DeepSort
+from torchvision.io import encode_jpeg
 from torchvision.models.detection import (
     FasterRCNN_MobileNet_V3_Large_FPN_Weights,
-    RetinaNet_ResNet50_FPN_V2_Weights,
-    fasterrcnn_mobilenet_v3_large_fpn,
-    retinanet_resnet50_fpn_v2,
-)
+    RetinaNet_ResNet50_FPN_V2_Weights, fasterrcnn_mobilenet_v3_large_fpn,
+    retinanet_resnet50_fpn_v2)
 from torchvision.utils import draw_bounding_boxes, draw_keypoints
-from torchvision.io import encode_jpeg
 
 from service.frame_collector import LastFrameCollector
 from service.logger_service import LoggerService
