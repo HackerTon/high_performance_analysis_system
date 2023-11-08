@@ -133,13 +133,10 @@ class App:
             def iterfile():
                 try:
                     while True:
-                        try:
-                            yield b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + frame[
-                                0
-                            ].tobytes() + b"\r\n"
-                            sleep(0.016)
-                        except:
-                            sleep(1)
+                        yield b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + frame[
+                            0
+                        ].tobytes() + b"\r\n"
+                        sleep(0.016)
                 except:
                     pass
 
