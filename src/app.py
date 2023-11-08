@@ -131,14 +131,15 @@ class App:
         @app.get("/")
         async def streaming_path():
             def iterfile():
-                try:
-                    while True:
+                # try:
+                while True:
+                    if len(frame) != 0:
                         yield b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + frame[
                             0
                         ].tobytes() + b"\r\n"
                         sleep(0.016)
-                except:
-                    pass
+                # except:
+                #     pass
 
             return StreamingResponse(
                 iterfile(),

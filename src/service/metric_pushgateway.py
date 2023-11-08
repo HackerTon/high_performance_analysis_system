@@ -1,6 +1,7 @@
 from typing import Union
 
 from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
+from urllib.error import URLError
 
 
 class MetricPusher:
@@ -35,8 +36,11 @@ class MetricPusher:
         self.person_left_to_right.set(person_left_to_right)
         self.person_right_to_left.set(person_right_to_left)
         self.timetaken_guage.set(latency)
-        push_to_gateway(
-            gateway=self.gateway_address,
-            job="batch",
-            registry=self.registry,
-        )
+        try:
+            push_to_gateway(
+                gateway=self.gateway_address,
+                job="batch",
+                registry=self.registry,
+            )
+        except URLError as error:
+            print(error.reason);
