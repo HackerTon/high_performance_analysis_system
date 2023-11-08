@@ -3,7 +3,6 @@ import time
 from threading import Thread
 from typing import Any, Callable, List, Optional, Union
 
-import cv2
 import numpy as np
 import torch
 from deep_sort_realtime.deep_sort.track import Track
@@ -14,9 +13,10 @@ from torchvision.models.detection import (
     fasterrcnn_mobilenet_v3_large_fpn,
     retinanet_resnet50_fpn_v2,
 )
-from torchvision.utils import draw_bounding_boxes
+from torchvision.utils import draw_bounding_boxes, draw_keypoints
+from torchvision.io import encode_jpeg
 
-from service.frame_collector import FrameCollector, LastFrameCollector
+from service.frame_collector import LastFrameCollector
 from service.logger_service import LoggerService
 from service.metric_pushgateway import MetricPusher
 
@@ -64,11 +64,11 @@ class Inferencer:
 
     @staticmethod
     def hwc2chw(image: torch.Tensor):
-        return torch.permute(image, [2, 0, 1])
+        return torch.permute(image, [0, 2, 3, 1])
 
     @staticmethod
     def chw2hwc(image: torch.Tensor):
-        return torch.permute(image, [1, 2, 0])
+        return torch.permute(image, [0, 3, 1, 2])
 
     @staticmethod
     def findCentroid(bounding_box):
@@ -103,7 +103,11 @@ class Inferencer:
                     ),
                 )
 
-        tracks: List[Track] = self.tracker.update_tracks(filter_only_human, frame=img)
+        tracks: List[Track] = self.tracker.update_tracks(
+            filter_only_human,
+            frame=img.numpy(),
+        )
+
         for track in tracks:
             if not track.is_confirmed():
                 continue
@@ -142,93 +146,62 @@ class Inferencer:
             ):
                 self.human_set_tracked_right.append(track_id)
 
-            # print(self.human_set_left)
-            # print(self.human_set_tracked_left)
-            # print(self.human_set_right)
-            # print(self.human_set_tracked_right)
-
-    def run(self, device, statistics, queue: Queue):
+    def run(self, device: str, queue: Queue):
         self.thread = Thread(
             target=self.infer,
-            args=(device, statistics, queue),
+            args=[device, queue],
             name="inference",
         )
 
-    def infer(self, device, statistics: Statistics, queue: Queue):
+    def infer(self, device: str, queue: Queue):
         LoggerService().logger.warn(f"Inference running on {device}")
         self.model = self.model.to(device)
         self.preprocess = self.preprocess.to(device)
 
         while self.running:
-            initial_time = time.time()
-            # images: List[Any] = self.framecollector.get_earliest_batch(self.batch_size)
-            # images: np.ndarray = self.framecollector.get_earliest_batch(1)
-            # images: np.ndarray = self.framecollector.read()
-            images: np.ndarray = queue.get()
+            image: np.ndarray = queue.get()
 
-            if images is None:
+            if image is None:
                 continue
 
-            images = [images]
-            original_images = images.copy()
-
-            for i in range(len(images)):
-                image = torch.tensor(images[i])
-                image = self.bgr2rgb(image)
-                image = self.hwc2chw(image)
-                image = image.to(device)
-                images[i] = self.preprocess(image)
+            initial_time = time.time()
+            images = torch.tensor(np.array([image]))
+            images = images.to(device=device)
+            input_images = self.bgr2rgb(images)
+            input_images = self.chw2hwc(input_images)
+            normalized_images = self.preprocess(input_images)
 
             with torch.no_grad():
-                prediction = self.model(images)
-                for idx in range(len(images)):
+                prediction = self.model(normalized_images)
+                for idx in range(input_images.shape[0]):
                     self.process_each_frame(
                         prediction=prediction[idx],
-                        img=original_images[idx],
+                        img=images[idx],
                     )
 
-                    image = torch.tensor(original_images[idx])
-                    image = self.bgr2rgb(image)
-                    image = self.hwc2chw(image)
+                    # Filter only human to be drawn
+                    only_idx = torch.where(prediction[idx]["labels"] == 1)
+                    only_human_bbox = prediction[idx]["boxes"][only_idx]
 
-                    filter_only_human = []
-                    for i in range(len(prediction[idx]["boxes"])):
-                        if prediction[idx]["labels"][i] == 1:
-                            filter_only_human.append(
-                                prediction[idx]["boxes"][i].cpu().numpy()
-                            )
-
-                    if len(filter_only_human) != 0:
-                        box_image = draw_bounding_boxes(
-                            image=image,
-                            boxes=torch.Tensor(np.array(filter_only_human)),
-                            colors="red",
-                        )
-
-                        box_image = self.chw2hwc(box_image)
-                        box_image = self.bgr2rgb(box_image)
-                        box_image = box_image.numpy().astype(np.uint8)
-                    else:
-                        box_image = original_images[idx]
-
-                    full_height = box_image.shape[0]
-                    half_width = box_image.shape[1] // 2
-
-                    box_image = cv2.line(
-                        box_image,
-                        (half_width, 0),
-                        (half_width, full_height),
-                        (255, 255, 0),
-                        2,
+                    visualization_image = draw_bounding_boxes(
+                        image=input_images[idx],
+                        boxes=only_human_bbox,
+                        colors="red",
                     )
 
-                    result, encimg = cv2.imencode(
-                        ".jpeg",
-                        box_image,
-                        [int(cv2.IMWRITE_JPEG_QUALITY), 90],
+                    # Draw middle line
+                    full_height = input_images.shape[2]
+                    half_width = input_images.shape[3] // 2
+
+                    visualization_image = draw_keypoints(
+                        visualization_image,
+                        torch.Tensor([[[half_width, 0], [half_width, full_height]]]),
+                        connectivity=[(0, 1)],
                     )
+
                     self.frame.clear()
-                    self.frame.append(encimg)
+                    encoded_image = encode_jpeg(visualization_image)
+                    self.frame.append(encoded_image.numpy())
 
             if self.metricspusher != None:
                 self.metricspusher.push(

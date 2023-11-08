@@ -22,6 +22,7 @@ from service.metric_pushgateway import MetricPusher
 
 statistics = Statistics()
 
+
 class App:
     def __init__(self) -> None:
         self.logger = LoggerService()
@@ -110,7 +111,7 @@ class App:
                 metricspusher=metricspusher,
                 frame=frame,
             )
-            inferencer.run(device=parsed_args.device, statistics=statistics, queue=frameQueuq)
+            inferencer.run(device=parsed_args.device, queue=frameQueuq)
             collector.start(queue=frameQueuq)
             inferencer.thread.start()
             collector.process.start()
@@ -119,7 +120,6 @@ class App:
             inferencer.running = False
             inferencer.thread.join()
             collector.process.join()
-
             LoggerService().logger.warning("Done stopping inference and collector")
 
         app = FastAPI(lifespan=deepengine)
