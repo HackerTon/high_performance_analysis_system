@@ -1,43 +1,25 @@
-import argparse
 from contextlib import asynccontextmanager
 from multiprocessing import Queue
 
-from typing import List
+from typing import List, Union
 import numpy as np
 import os
 
-# from threading import Thread
 from time import sleep
 
-# import torch
 import uvicorn
-from fastapi import FastAPI, Header
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import StreamingResponse, Response
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
 
-from inferencing.inference import Inferencer, Statistics
+from inferencing.inference import Inferencer
 from service.frame_collector import LastFrameCollector
 from service.logger_service import LoggerService
 from service.metric_pushgateway import MetricPusher
 
-# parser: argparse.ArgumentParser = argparse.ArgumentParser()
-# parser.add_argument("-d", "--device", help="device", default=os.environ.get("device"))
-# parser.add_argument("-r", "--reload", help="reload", default=False)
-# parser.add_argument(
-#     "-vp",
-#     "--video_path",
-#     help="Video path file or url",
-#     default=os.environ.get("video_path"),
-# )
-# parsed_args: argparse.Namespace = parser.parse_args()
-
-# print(f"Run on {parsed_args.device}")
-# print(f"with video of {parsed_args.video_path}")
-
-statistics = Statistics()
 logger = LoggerService()
-visualFrameQueue: Queue = Queue()
+visualFrameQueue: List[Union[np.ndarray, None]] = [None]
 frameQueue: Queue = Queue()
+
 
 device = os.getenv("DEVICE", "cpu")
 video_path = os.getenv("VIDEO_PATH")
@@ -82,8 +64,10 @@ def status_path():
 async def streaming_path():
     def iterfile():
         while True:
-            if not visualFrameQueue.empty():
-                yield b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + visualFrameQueue.get().tobytes() + b"\r\n"
+            if type(visualFrameQueue[0]) == np.ndarray:
+                yield b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + visualFrameQueue[
+                    0
+                ].tobytes() + b"\r\n"
                 sleep(0.016)
 
     return StreamingResponse(

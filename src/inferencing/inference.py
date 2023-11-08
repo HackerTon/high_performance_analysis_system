@@ -31,7 +31,7 @@ class Inferencer:
     def __init__(
         self,
         framecollector: LastFrameCollector,
-        frame: Queue,
+        frame: List[Union[np.ndarray, None]],
         metricspusher: Optional[MetricPusher] = None,
         box_score_thresh=0.9,
     ) -> None:
@@ -198,7 +198,7 @@ class Inferencer:
                     )
 
                     encoded_image = encode_jpeg(visualization_image)
-                    self.frame.put(encoded_image.numpy())
+                    self.frame[0] = encoded_image.numpy()
 
             if self.metricspusher != None:
                 self.metricspusher.push(
