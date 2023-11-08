@@ -105,7 +105,7 @@ class Inferencer:
 
         tracks: List[Track] = self.tracker.update_tracks(
             filter_only_human,
-            frame=img.numpy(),
+            frame=img.cpu().numpy(),
         )
 
         for track in tracks:
