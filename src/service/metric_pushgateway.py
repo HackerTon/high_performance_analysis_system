@@ -43,4 +43,4 @@ class MetricPusher:
                 registry=self.registry,
             )
         except URLError as error:
-            print(error.reason);
+            print(error.reason)

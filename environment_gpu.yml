@@ -1,0 +1,15 @@
+name: pytorch
+channels:
+  - defaults
+  - nvidia
+dependencies:
+  - python=3.8
+  - pytorch::pytorch
+  - pytorch::torchvision
+  - uvicorn
+  - gunicorn
+  - tensorboard
+  - prometheus_client
+  - pip
+  - pip:
+    - -r requirements.txt

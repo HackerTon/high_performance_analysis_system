@@ -12,7 +12,10 @@ x-platform: &default-platform linux/amd64
 
 services:
   aisystem:
-    build: .
+    build:
+      dockerfile: ./Dockerfile
+      args:
+        - MODE=CPU
     container_name: aisystem
     restart: unless-stopped
     ports:
@@ -20,11 +23,8 @@ services:
     networks:
       - monitoring
     environment:
-      - device=cpu
-      - video_path=rtsp://admin:@192.168.2.245:554
-      - batch_size=1
-    volumes:
-      - ~/Downloads/video2.mp4:/app/video2.mp4
+      - DEVICE=cpu
+      - VIDEO_PATH=rtsp://admin:@192.168.2.245:554
     platform: *default-platform
     depends_on:
       - pushgateway

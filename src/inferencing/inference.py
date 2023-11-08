@@ -31,8 +31,7 @@ class Inferencer:
     def __init__(
         self,
         framecollector: LastFrameCollector,
-        batch_size,
-        frame: List[np.ndarray],
+        frame: Queue,
         metricspusher: Optional[MetricPusher] = None,
         box_score_thresh=0.9,
     ) -> None:
@@ -41,7 +40,6 @@ class Inferencer:
         self.running = True
         self.metricspusher = metricspusher
         self.framecollector = framecollector
-        self.batch_size = batch_size
         self.frame = frame
 
         self.human_set_right = []
@@ -199,17 +197,16 @@ class Inferencer:
                         connectivity=[(0, 1)],
                     )
 
-                    self.frame.clear()
                     encoded_image = encode_jpeg(visualization_image)
-                    self.frame.append(encoded_image.numpy())
+                    self.frame.put(encoded_image.numpy())
 
             if self.metricspusher != None:
                 self.metricspusher.push(
-                    latency=(time.time() - initial_time) / self.batch_size,
+                    latency=(time.time() - initial_time),
                     person_right_to_left=len(self.human_set_tracked_right),
                     person_left_to_right=len(self.human_set_tracked_left),
                 )
             else:
                 print(f"Right to left: {len(self.human_set_tracked_right)}")
                 print(f"Left to right: {len(self.human_set_tracked_left)}")
-                print(f"Latency: {(time.time() - initial_time) / self.batch_size}")
+                print(f"Latency: {(time.time() - initial_time)}")

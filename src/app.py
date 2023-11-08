@@ -20,130 +20,81 @@ from service.frame_collector import LastFrameCollector
 from service.logger_service import LoggerService
 from service.metric_pushgateway import MetricPusher
 
+# parser: argparse.ArgumentParser = argparse.ArgumentParser()
+# parser.add_argument("-d", "--device", help="device", default=os.environ.get("device"))
+# parser.add_argument("-r", "--reload", help="reload", default=False)
+# parser.add_argument(
+#     "-vp",
+#     "--video_path",
+#     help="Video path file or url",
+#     default=os.environ.get("video_path"),
+# )
+# parsed_args: argparse.Namespace = parser.parse_args()
+
+# print(f"Run on {parsed_args.device}")
+# print(f"with video of {parsed_args.video_path}")
+
 statistics = Statistics()
+logger = LoggerService()
+visualFrameQueue: Queue = Queue()
+frameQueue: Queue = Queue()
+
+device = os.getenv("DEVICE", "cpu")
+video_path = os.getenv("VIDEO_PATH")
+
+if video_path == None:
+    logger.logger.warning("video_path ENV not provided")
+    quit()
+
+logger().warning("Initialization of application")
 
 
-class App:
-    def __init__(self) -> None:
-        self.logger = LoggerService()
-        self.logger().warning("Initialization of application")
+@asynccontextmanager
+async def deepengine(app: FastAPI):
+    collector = LastFrameCollector(video_path=video_path)
+    metricspusher = MetricPusher(gateway_address="pushgateway:9091")
+    inferencer = Inferencer(
+        framecollector=collector,
+        metricspusher=metricspusher,
+        frame=visualFrameQueue,
+    )
+    inferencer.run(device=device, queue=frameQueue)
+    collector.start(queue=frameQueue)
+    inferencer.thread.start()
+    collector.process.start()
+    yield
+    collector.running = False
+    inferencer.running = False
+    inferencer.thread.join()
+    collector.process.join()
+    LoggerService().logger.warning("Done stopping inference and collector")
 
-    def run(self) -> None:
-        parser: argparse.ArgumentParser = argparse.ArgumentParser()
-        parser.add_argument(
-            "-d",
-            "--device",
-            help="device",
-            default=os.environ.get("device"),
-        )
-        parser.add_argument(
-            "-r",
-            "--reload",
-            help="reload",
-            default=False,
-        )
-        parser.add_argument(
-            "-vp",
-            "--video_path",
-            help="Video path file or url",
-            default=os.environ.get("video_path"),
-        )
-        parser.add_argument(
-            "-b",
-            "--batch_size",
-            help="Batch size",
-            default=os.environ.get("batch_size"),
-            type=int,
-        )
-        parsed_args: argparse.Namespace = parser.parse_args()
-        uvicorn.run(
-            app="app:App.webserver_factory",
-            factory=True,
-            host="0.0.0.0",
-            port=8000,
-            reload=parsed_args.reload,
-        )
 
-    @staticmethod
-    def webserver_factory() -> FastAPI:
-        parser: argparse.ArgumentParser = argparse.ArgumentParser()
-        parser.add_argument(
-            "-d",
-            "--device",
-            help="device",
-            default=os.environ.get("device"),
-        )
-        parser.add_argument(
-            "-r",
-            "--reload",
-            help="reload",
-            default=False,
-        )
-        parser.add_argument(
-            "-vp",
-            "--video_path",
-            help="Video path file or url",
-            default=os.environ.get("video_path"),
-        )
-        parser.add_argument(
-            "-b",
-            "--batch_size",
-            help="Batch size",
-            default=os.environ.get("batch_size"),
-            type=int,
-        )
-        parsed_args: argparse.Namespace = parser.parse_args()
+app = FastAPI(lifespan=deepengine)
 
-        print(f"Run on {parsed_args.device}")
-        print(f"with video of {parsed_args.video_path}")
-        print(f"and batch size of {parsed_args.batch_size}")
 
-        frame: List[np.ndarray] = []
-        frameQueuq: Queue = Queue()
+@app.get("/status")
+def status_path():
+    return "Hello world, I am online"
 
-        @asynccontextmanager
-        async def deepengine(app: FastAPI):
-            collector = LastFrameCollector(parsed_args.video_path)
-            metricspusher = MetricPusher(gateway_address="pushgateway:9091")
-            inferencer = Inferencer(
-                framecollector=collector,
-                batch_size=parsed_args.batch_size,
-                metricspusher=metricspusher,
-                frame=frame,
-            )
-            inferencer.run(device=parsed_args.device, queue=frameQueuq)
-            collector.start(queue=frameQueuq)
-            inferencer.thread.start()
-            collector.process.start()
-            yield
-            collector.running = False
-            inferencer.running = False
-            inferencer.thread.join()
-            collector.process.join()
-            LoggerService().logger.warning("Done stopping inference and collector")
 
-        app = FastAPI(lifespan=deepengine)
+@app.get("/")
+async def streaming_path():
+    def iterfile():
+        while True:
+            if not visualFrameQueue.empty():
+                yield b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + visualFrameQueue.get().tobytes() + b"\r\n"
+                sleep(0.016)
 
-        @app.get("/status")
-        def status_path():
-            return "Hello world, I am online"
+    return StreamingResponse(
+        iterfile(),
+        media_type="multipart/x-mixed-replace;boundary=frame",
+    )
 
-        @app.get("/")
-        async def streaming_path():
-            def iterfile():
-                # try:
-                while True:
-                    if len(frame) != 0:
-                        yield b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + frame[
-                            0
-                        ].tobytes() + b"\r\n"
-                        sleep(0.016)
-                # except:
-                #     pass
 
-            return StreamingResponse(
-                iterfile(),
-                media_type="multipart/x-mixed-replace;boundary=frame",
-            )
-
-        return app
+if __name__ == "__main__":
+    uvicorn.run(
+        app=app,
+        host="0.0.0.0",
+        port=8000,
+    )

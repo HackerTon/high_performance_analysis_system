@@ -12,7 +12,10 @@ x-platform: &default-platform linux/amd64
 
 services:
   aisystem:
-    build: .
+    build:
+      dockerfile: ./Dockerfile
+      args:
+        - MODE=GPU
     container_name: aisystem
     restart: unless-stopped
     networks:
@@ -20,11 +23,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - device=cuda
-      - video_path=rtsp://admin:@192.168.2.245:554
-      - batch_size=2
-    volumes:
-      - ~/Downloads/video2.mp4:/app/video2.mp4
+      - DEVICE=cuda
+      - VIDEO_PATH=rtsp://admin:@192.168.2.245:554
     platform: *default-platform
     depends_on:
       - pushgateway
@@ -34,7 +34,7 @@ services:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [gpu]
+              capabilities: [ gpu ]
 
   prometheus:
     image: prom/prometheus:latest
