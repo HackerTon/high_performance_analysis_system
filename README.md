@@ -1,2 +1,2 @@
 ## Run whole system
-1) docker-compose -f docker-compose-(cpu|gpu).yml up -d 
+1) `docker-compose -f compose-(cpu|gpu).yml up -d`
