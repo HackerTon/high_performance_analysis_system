@@ -1,12 +1,11 @@
-from contextlib import asynccontextmanager
-from multiprocessing import Queue
-
-from typing import List, Union
-import numpy as np
 import os
-
+from contextlib import asynccontextmanager
+from multiprocessing import Pipe
+from multiprocessing.connection import Connection
 from time import sleep
+from typing import List, Union
 
+import numpy as np
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
@@ -18,7 +17,9 @@ from service.metric_pushgateway import MetricPusher
 
 logger = LoggerService()
 visualFrameQueue: List[Union[np.ndarray, None]] = [None]
-frameQueue: Queue = Queue()
+parentConnection: Connection
+childConnection: Connection
+parentConnection, childConnection = Pipe()
 
 
 device = os.getenv("DEVICE", "cpu")
@@ -40,8 +41,8 @@ async def deepengine(app: FastAPI):
         metricspusher=metricspusher,
         frame=visualFrameQueue,
     )
-    inferencer.run(device=device, queue=frameQueue)
-    collector.start(queue=frameQueue)
+    inferencer.run(device=device, parentConnection=parentConnection)
+    collector.start(childCollection=childConnection)
     inferencer.thread.start()
     collector.process.start()
     yield
@@ -56,8 +57,8 @@ app = FastAPI(lifespan=deepengine)
 
 
 @app.get("/status")
-def status_path():
-    return "Hello world, I am online"
+async def status_path():
+    return "Hello world, I am online😀"
 
 
 @app.get("/")
@@ -78,7 +79,9 @@ async def streaming_path():
 
 if __name__ == "__main__":
     uvicorn.run(
-        app=app,
+        app="app:app",
+        app_dir="src/",
         host="0.0.0.0",
         port=8000,
+        reload=True,
     )

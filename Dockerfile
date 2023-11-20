@@ -18,7 +18,7 @@ COPY environment_gpu.yml .
 RUN if [ "$MODE" = "CPU" ]; then \
     conda env create -f environment_cpu.yml; \
     elif [ "$MODE" = "GPU" ]; then \
-    conda env create -f environment_cpu.yml; \
+    conda env create -f environment_gpu.yml; \
     else \
     echo "No valid model provided MODE: (GPU | GPU)"; \
     fi

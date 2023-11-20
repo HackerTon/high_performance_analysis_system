@@ -1,5 +1,6 @@
 import time
 from multiprocessing import Queue
+from multiprocessing.connection import Connection
 from threading import Thread
 from typing import Any, Callable, List, Optional, Union
 
@@ -9,20 +10,14 @@ from deep_sort_realtime.deep_sort.track import Track
 from deep_sort_realtime.deepsort_tracker import DeepSort
 from torchvision.io import encode_jpeg
 from torchvision.models.detection import (
-    FasterRCNN_MobileNet_V3_Large_FPN_Weights,
-    RetinaNet_ResNet50_FPN_V2_Weights, fasterrcnn_mobilenet_v3_large_fpn,
-    retinanet_resnet50_fpn_v2)
+    RetinaNet_ResNet50_FPN_V2_Weights,
+    fasterrcnn_resnet50_fpn_v2,
+)
 from torchvision.utils import draw_bounding_boxes, draw_keypoints
 
 from service.frame_collector import LastFrameCollector
 from service.logger_service import LoggerService
 from service.metric_pushgateway import MetricPusher
-
-
-class Statistics:
-    def __init__(self) -> None:
-        self.number_of_person: int = 0
-        self.fps: float = 0
 
 
 class Inferencer:
@@ -31,7 +26,7 @@ class Inferencer:
         framecollector: LastFrameCollector,
         frame: List[Union[np.ndarray, None]],
         metricspusher: Optional[MetricPusher] = None,
-        box_score_thresh=0.9,
+        box_score_thresh=0.98,
     ) -> None:
         self._initModelAndProcess(box_score_thresh)
         self.tracker = DeepSort(max_age=10)
@@ -46,9 +41,9 @@ class Inferencer:
         self.human_set_tracked_left = []
 
     def _initModelAndProcess(self, box_score_thresh: float):
-        self.weights = FasterRCNN_MobileNet_V3_Large_FPN_Weights.DEFAULT
+        self.weights = RetinaNet_ResNet50_FPN_V2_Weights.DEFAULT
         self.preprocess = self.weights.transforms()
-        self.model = fasterrcnn_mobilenet_v3_large_fpn(
+        self.model = fasterrcnn_resnet50_fpn_v2(
             weights=self.weights,
             box_score_thresh=box_score_thresh,
         )
@@ -79,13 +74,6 @@ class Inferencer:
 
     def stop(self):
         self.running = False
-
-    @staticmethod
-    def check_and_delete_unique(condition_function: Callable, array: List[Any]):
-        for idx in range(len(array)):
-            if condition_function(array[idx]):
-                array.pop(idx)
-                break
 
     def process_each_frame(self, prediction, img):
         filter_only_human = []
@@ -142,20 +130,20 @@ class Inferencer:
             ):
                 self.human_set_tracked_right.append(track_id)
 
-    def run(self, device: str, queue: Queue):
+    def run(self, device: str, parentConnection: Connection):
         self.thread = Thread(
             target=self.infer,
-            args=[device, queue],
+            args=[device, parentConnection],
             name="inference",
         )
 
-    def infer(self, device: str, queue: Queue):
+    def infer(self, device: str, parentConnection: Connection):
         LoggerService().logger.warn(f"Inference running on {device}")
         self.model = self.model.to(device)
         self.preprocess = self.preprocess.to(device)
 
         while self.running:
-            image: np.ndarray = queue.get()
+            image: np.ndarray = parentConnection.recv()
 
             if image is None:
                 continue
@@ -170,10 +158,10 @@ class Inferencer:
             with torch.no_grad():
                 prediction = self.model(normalized_images)
                 for idx in range(input_images.shape[0]):
-                    self.process_each_frame(
-                        prediction=prediction[idx],
-                        img=images[idx],
-                    )
+                    # self.process_each_frame(
+                    #     prediction=prediction[idx],
+                    #     img=images[idx],
+                    # )
 
                     # Filter only human to be drawn
                     only_idx = torch.where(prediction[idx]["labels"] == 1)

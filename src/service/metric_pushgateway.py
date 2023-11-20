@@ -1,7 +1,7 @@
 from typing import Union
+from urllib.error import URLError
 
 from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
-from urllib.error import URLError
 
 
 class MetricPusher:

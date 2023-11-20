@@ -2,14 +2,17 @@ name: pytorch
 channels:
   - defaults
   - nvidia
+  - conda-forge
 dependencies:
-  - python=3.8
+  - python=3.11
   - pytorch::pytorch
   - pytorch::torchvision
+  - pytorch-cuda=11.8
   - uvicorn
   - gunicorn
   - tensorboard
   - prometheus_client
+  - fastapi
   - pip
   - pip:
     - -r requirements.txt
