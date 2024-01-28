@@ -27,4 +27,4 @@ SHELL ["conda", "run", "-n", "pytorch", "/bin/bash", "-c"]
 RUN python --version
 
 COPY src ./src
-ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "pytorch", "uvicorn", "--app-dir=src/", "app:app", "--host", "0.0.0.0"]
+ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "pytorch", "uvicorn", "--app-dir=src/", "app:app", "--host", "0.0.0.0", "--reload"]

@@ -3,11 +3,7 @@ version: '3.8'
 networks:
   monitoring:
     driver: bridge
-
-volumes:
-  prometheus_data: {}
-  grafana-storage: {}
-
+    
 x-platform: &default-platform linux/amd64
 
 services:
@@ -15,61 +11,14 @@ services:
     build:
       dockerfile: ./Dockerfile
       args:
-        - MODE=GPU
+        - MODE=CPU
     container_name: aisystem
     restart: unless-stopped
-    networks:
-      - monitoring
     ports:
       - "8000:8000"
+    networks:
+      - monitoring
     environment:
-      - DEVICE=cuda
+      - DEVICE=cpu
       - VIDEO_PATH=rtsp://admin:@192.168.2.245:554
     platform: *default-platform
-    depends_on:
-      - pushgateway
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [ gpu ]
-
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: prometheus
-    restart: unless-stopped
-    volumes:
-      - ./dockers_settings/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--web.enable-lifecycle'
-    expose:
-      - 9090
-    networks:
-      - monitoring
-
-  pushgateway:
-    image: prom/pushgateway
-    container_name: pushgateway
-    restart: unless-stopped
-    expose:
-      - 9091
-    networks:
-      - monitoring
-
-  grafana:
-    image: grafana/grafana-oss
-    container_name: grafana
-    restart: unless-stopped
-    ports:
-      - '3000:3000'
-    volumes:
-      - grafana-storage:/var/lib/grafana
-    networks:
-      - monitoring

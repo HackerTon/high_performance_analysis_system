@@ -10,8 +10,8 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 
-from inferencing.inference import Inferencer
-from service.frame_collector import LastFrameCollector
+from inferencing.inference import OCRInferencer
+from service.frame_collector import LastFrameCollector, MockUpCollector
 from service.logger_service import LoggerService
 from service.metric_pushgateway import MetricPusher
 
@@ -34,11 +34,11 @@ logger().warning("Initialization of application")
 
 @asynccontextmanager
 async def deepengine(app: FastAPI):
-    collector = LastFrameCollector(video_path=video_path)
-    metricspusher = MetricPusher(gateway_address="pushgateway:9091")
-    inferencer = Inferencer(
+    collector = MockUpCollector(image_path=video_path)
+    # metricspusher = MetricPusher(gateway_address="pushgateway:9091")
+    inferencer = OCRInferencer(
         framecollector=collector,
-        metricspusher=metricspusher,
+        # metricspusher=metricspusher,
         frame=visualFrameQueue,
     )
     inferencer.run(device=device, parentConnection=parentConnection)

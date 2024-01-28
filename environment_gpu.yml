@@ -13,6 +13,7 @@ dependencies:
   - tensorboard
   - prometheus_client
   - fastapi
+  - transformers
   - pip
   - pip:
     - -r requirements.txt
