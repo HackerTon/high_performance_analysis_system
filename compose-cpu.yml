@@ -24,6 +24,6 @@ services:
     platform: *default-platform
     develop:
       watch:
-        - action: rebuild
+        - action: sync
           path: src/
-          target: /app/
+          target: /app/src

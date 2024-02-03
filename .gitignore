@@ -1,3 +1,6 @@
+*.pt
+*.jpeg
+
 data/
 log/
 .vscode/

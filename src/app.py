@@ -35,6 +35,7 @@ logger().warning("Initialization of application")
 @asynccontextmanager
 async def deepengine(app: FastAPI):
     collector = MockUpCollector(image_path=video_path)
+    # collector = LastFrameCollector(video_path=video_path)
     # metricspusher = MetricPusher(gateway_address="pushgateway:9091")
     inferencer = OCRInferencer(
         framecollector=collector,
@@ -49,6 +50,7 @@ async def deepengine(app: FastAPI):
     collector.running = False
     inferencer.running = False
     inferencer.thread.join()
+    collector.process.terminate()
     collector.process.join()
     LoggerService().logger.warning("Done stopping inference and collector")
 
