@@ -13,16 +13,16 @@ class LastFrameCollector:
         self.running = True
         self.lock = Lock()
 
-    def start(self, childCollection: Connection):
+    def start(self, upstream_connection: Connection):
         self.process: Process = Process(
             target=self._start_collection,
-            args=[childCollection],
+            args=[upstream_connection],
         )
 
     def stop(self):
         self.running = False
 
-    def _start_collection(self, childConnection: Connection):
+    def _start_collection(self, upstream_connection: Connection):
         cam = cv2.VideoCapture(self.video_path)
         while self.running:
             frame_running, frame = cam.read()
@@ -30,8 +30,7 @@ class LastFrameCollector:
                 self.batch_frame = None
                 self.stop()
                 break
-            # queue.put(frame)
-            childConnection.send(frame)
+            upstream_connection.send(frame)
             time.sleep(0.01)
         cam.release()
 
@@ -43,17 +42,17 @@ class MockUpCollector:
         self.running = True
         self.lock = Lock()
 
-    def start(self, childCollection: Connection):
+    def start(self, upstream_connection: Connection):
         self.process: Process = Process(
             target=self._start_collection,
-            args=[childCollection],
+            args=[upstream_connection],
         )
 
     def stop(self):
         self.running = False
 
-    def _start_collection(self, childConnection: Connection):
+    def _start_collection(self, upstream_connection: Connection):
         while self.running:
             frame = cv2.imread(self.image_path)
-            childConnection.send(frame)
+            upstream_connection.send(frame)
             time.sleep(0.01)

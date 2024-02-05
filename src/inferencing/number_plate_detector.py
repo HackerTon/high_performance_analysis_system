@@ -11,7 +11,7 @@ from transformers import PreTrainedModel, TrOCRProcessor, VisionEncoderDecoderMo
 from inferencing.model import MultiNet
 
 
-class MaskProcessor:
+class NumberPlateDetector:
     def __init__(
         self,
         text_processor: TrOCRProcessor,
@@ -125,7 +125,7 @@ class MaskProcessor:
     ):
         unsorted_pair = []
         for i in range(len(all_patch_coodinates)):
-            area = MaskProcessor.area(all_patch_coodinates[i])
+            area = NumberPlateDetector.area(all_patch_coodinates[i])
             unsorted_pair.append((area, i))
         print(unsorted_pair)
         sorted_index = sorted(unsorted_pair, key=lambda x: x[0])

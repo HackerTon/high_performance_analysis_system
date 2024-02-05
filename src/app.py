@@ -13,12 +13,9 @@ from fastapi.responses import StreamingResponse
 from inferencing.inference import OCRInferencer
 from service.frame_collector import LastFrameCollector, MockUpCollector
 from service.logger_service import LoggerService
-from service.metric_pushgateway import MetricPusher
 
 logger = LoggerService()
-visualFrameQueue: List[Union[np.ndarray, None]] = [None]
-parentConnection: Connection
-childConnection: Connection
+streaming_down_connection, streaming_up_connection = Pipe(False)
 parentConnection, childConnection = Pipe()
 
 
@@ -36,14 +33,13 @@ logger().warning("Initialization of application")
 async def deepengine(app: FastAPI):
     collector = MockUpCollector(image_path=video_path)
     # collector = LastFrameCollector(video_path=video_path)
-    # metricspusher = MetricPusher(gateway_address="pushgateway:9091")
-    inferencer = OCRInferencer(
-        framecollector=collector,
-        # metricspusher=metricspusher,
-        frame=visualFrameQueue,
+    inferencer = OCRInferencer(device=device)
+    inferencer.run(
+        device=device,
+        frame_down_connection=parentConnection,
+        streaming_up_connection=streaming_up_connection,
     )
-    inferencer.run(device=device, parentConnection=parentConnection)
-    collector.start(childCollection=childConnection)
+    collector.start(upstream_connection=childConnection)
     inferencer.thread.start()
     collector.process.start()
     yield
@@ -67,11 +63,11 @@ async def status_path():
 async def streaming_path():
     def iterfile():
         while True:
-            if type(visualFrameQueue[0]) == np.ndarray:
-                yield b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + visualFrameQueue[
-                    0
-                ].tobytes() + b"\r\n"
-                sleep(0.016)
+            image_bytes = streaming_down_connection.recv_bytes()
+            if image_bytes is None:
+                continue
+            yield b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + image_bytes + b"\r\n"
+            sleep(0.016)
 
     return StreamingResponse(
         iterfile(),

@@ -3,7 +3,7 @@ version: '3.8'
 networks:
   monitoring:
     driver: bridge
-    
+
 x-platform: &default-platform linux/amd64
 
 services:
@@ -11,7 +11,7 @@ services:
     build:
       dockerfile: ./Dockerfile
       args:
-        - MODE=CPU
+        - MODE=GPU
     container_name: aisystem
     restart: unless-stopped
     ports:
@@ -20,5 +20,10 @@ services:
       - monitoring
     environment:
       - DEVICE=cpu
-      - VIDEO_PATH=rtsp://admin:@192.168.2.245:554
+      - VIDEO_PATH=./src/container.jpeg
     platform: *default-platform
+    develop:
+      watch:
+        - action: sync
+          path: src/
+          target: /app/src
