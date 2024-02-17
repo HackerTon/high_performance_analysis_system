@@ -20,7 +20,7 @@ services:
       - monitoring
     environment:
       - DEVICE=cpu
-      - VIDEO_PATH=./src/container.jpeg
+      - VIDEO_PATH=./src/video.mp4
     platform: *default-platform
     develop:
       watch:

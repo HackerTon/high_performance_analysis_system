@@ -31,7 +31,6 @@ class LastFrameCollector:
                 self.stop()
                 break
             upstream_connection.send(frame)
-            time.sleep(0.01)
         cam.release()
 
 

@@ -31,8 +31,8 @@ logger().warning("Initialization of application")
 
 @asynccontextmanager
 async def deepengine(app: FastAPI):
-    collector = MockUpCollector(image_path=video_path)
-    # collector = LastFrameCollector(video_path=video_path)
+    # collector = MockUpCollector(image_path=video_path)
+    collector = LastFrameCollector(video_path=video_path)
     inferencer = OCRInferencer(device=device)
     inferencer.run(
         device=device,

@@ -6,7 +6,7 @@ import cv2
 
 import numpy as np
 import torch
-from inferencing.number_plate_detector import NumberPlateDetector
+from inferencing.number_plate_detector import NumberPlateProcessor
 from inferencing.model import MultiNet, BackboneType
 from service.logger_service import LoggerService
 from service.metric_pushgateway import MetricPusher
@@ -67,7 +67,7 @@ class OCRInferencer:
         self.ocrModel = self.ocrModel.to(device)
         self.localizerProcessor = self.localizerProcessor.to(device)
 
-        license_plate_processor = NumberPlateDetector(
+        license_plate_processor = NumberPlateProcessor(
             text_processor=self.ocrProcessor,
             text_model=self.ocrModel,
             detection_model=self.localizerModel,
@@ -75,7 +75,6 @@ class OCRInferencer:
         )
 
         to_tensor = ToTensor()
-
         while self.running:
             image: np.ndarray = frame_down_connection.recv()
 
@@ -83,24 +82,24 @@ class OCRInferencer:
                 continue
 
             initial_time = time.time()
-            # images = to_tensor(image)
-            # images = images[[2, 1, 0]]
-            # images = images.to(device=device)
-            # result = license_plate_processor.obtain_text(
-            #     single_image=images, device=device
-            # )
+            images = to_tensor(image)
+            images = images[[2, 1, 0]]
+            images = images.to(device=device)
+            result = license_plate_processor.obtain_text(
+                single_image=images, device=device
+            )
 
-            # if result != "":
-            #     image = cv2.putText(
-            #         image,
-            #         result,
-            #         (50, 50),
-            #         cv2.FONT_HERSHEY_SIMPLEX,
-            #         1,
-            #         (255, 255, 255),
-            #         2,
-            #         cv2.LINE_AA,
-            #     )
+            if result != "":
+                image = cv2.putText(
+                    image,
+                    result,
+                    (50, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1,
+                    (255, 255, 255),
+                    2,
+                    cv2.LINE_AA,
+                )
 
             # Write latency into image
             image = cv2.putText(
